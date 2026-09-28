@@ -314,10 +314,10 @@ export class Stage {
       it.root.visible = Math.abs(p) < 3.6;
 
       // motion: gentle idle sway on active, pointer parallax
-      const sway = this.reduced ? 0 : Math.sin(t * 0.5) * 0.18 * a;
+      const sway = this.reduced ? 0 : Math.sin(t * 0.3) * 0.07 * a;
       it.tilt.rotation.y = it.def.yaw + sway + this.follow.x * 0.09 * a;
       it.tilt.rotation.x = -this.follow.y * 0.045 * a;
-      it.tilt.position.y = this.reduced ? 0 : Math.sin(t * 0.9 + it.index) * 4 * a;
+      it.tilt.position.y = this.reduced ? 0 : Math.sin(t * 0.45 + it.index) * 1.5 * a;
 
       // luminosity -> tint
       for (const m of it.materials) {

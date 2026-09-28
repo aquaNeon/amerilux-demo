@@ -32,6 +32,8 @@ npm run models     # re-optimise GLBs from ../export into public/models
 | Specialty Products | GLB: 8" pin corner, pin, 2.5" spacer |
 | Multiwall / Corrugated / Flat / Decking | procedural placeholders (`src/products.js`) |
 
+See [PLACEHOLDERS.md](PLACEHOLDERS.md) for everything invented for the demo.
+
 `tools/optimize.mjs` resets stray node transforms (the 2.5" spacer was exported at 0.29 scale),
 bakes the Y-up rotation, centres each part and meshopt-compresses it (2.5 MB → 400 KB).
 
