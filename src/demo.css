@@ -1,0 +1,90 @@
+/* Demo page styles — reference for the Webflow build (Figma: AmeriLux Design / Concept 17).
+   Only the canvas styles ship with amerilux-3d.js; everything here is rebuilt natively in Webflow. */
+:root {
+  --bg: #f5f5f5;
+  --panel: #fff;
+  --ink: #000;
+  --text-1: #212121;
+  --red: #af2234;
+  --line: rgba(0, 0, 0, 0.12);
+  --font: 'PP Neue Montreal', 'Neue Montreal', 'Helvetica Neue', Arial, sans-serif;
+  --mono: 'PP Neue Montreal Mono', 'IBM Plex Mono', ui-monospace, monospace;
+  --panel-w: 371px;
+  --gutter: 31.5px;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+h1, h2, p { margin: 0; }
+
+.products { display: flex; height: max(760px, 100svh); background: var(--bg); overflow: hidden; }
+
+/* left column ------------------------------------------------------------- */
+.products__main { position: relative; flex: 1; min-width: 0; }
+.products__stage { position: absolute; inset: 0; }
+.products__intro, .products__lede, .products__rule, .products__nav { position: absolute; z-index: 1; }
+.products__intro { left: 64px; top: 99px; width: min(585px, calc(100% - 128px)); display: flex; flex-direction: column; gap: 16px; align-items: flex-start; pointer-events: none; }
+
+.eyebrow { display: inline-flex; align-items: center; gap: 10px; height: 34px; padding: 10px 15px; background: var(--red); color: #fff; font: 500 14px/1 var(--mono); letter-spacing: 0.7px; text-transform: uppercase; }
+.eyebrow__dot { width: 10px; height: 10px; border-radius: 2px; background: #fff; }
+
+.products__title { font-size: 42px; font-weight: 600; line-height: 1; letter-spacing: -1.26px; }
+.products__rule { left: 0; right: 0; top: 267px; margin: 0; border: 0; border-top: 1px solid var(--line); }
+.products__lede { left: 64px; top: 291px; width: 350px; font-size: 16px; font-weight: 600; line-height: 1.25; letter-spacing: -0.16px; pointer-events: none; }
+
+.products__nav { right: 62px; bottom: 67px; display: flex; gap: 7px; }
+.nav-btn { display: grid; place-items: center; width: 46px; height: 66px; border-radius: 2px; background: rgba(0, 0, 0, 0.1); border: 1px solid rgba(0, 0, 0, 0.2); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); transition: background 0.2s; padding-top: 20px; }
+.nav-btn:hover { background: rgba(0, 0, 0, 0.18); }
+.nav-btn--prev svg { transform: scaleX(-1); }
+
+/* right panel / tabs -------------------------------------------------------- */
+.products__panel { width: var(--panel-w); flex: none; background: var(--panel); border-left: 1px solid var(--line); overflow-y: auto; }
+.tab { border-top: 1px solid var(--line); }
+.tab:first-child { border-top: 0; }
+.tab:last-child { border-bottom: 1px solid var(--line); }
+
+.tab__head, .tab__body { display: grid; transition: grid-template-rows 0.45s cubic-bezier(0.6, 0, 0.2, 1), opacity 0.3s; }
+.tab__head { grid-template-rows: 1fr; width: 100%; text-align: left; }
+.tab__head > span { overflow: hidden; }
+.tab__head {
+  grid-template-columns: 1fr 12px; column-gap: 24px; align-items: center;
+  padding: 24px var(--gutter); font-size: 20px; font-weight: 600; line-height: 1; letter-spacing: -0.2px;
+  transition: grid-template-rows 0.45s cubic-bezier(0.6, 0, 0.2, 1), padding 0.45s cubic-bezier(0.6, 0, 0.2, 1), opacity 0.2s;
+}
+.tab__head:hover { opacity: 0.6; }
+.tab__caret { fill: var(--ink); }
+.tab__body { grid-template-rows: 0fr; opacity: 0; }
+.tab__inner { overflow: hidden; min-height: 0; padding: 0 var(--gutter); }
+.tab__inner > :first-child { margin-top: 24px; }
+.tab:first-child .tab__inner > :first-child { margin-top: 39px; }
+
+.tab.is-active .tab__head { grid-template-rows: 0fr; padding-block: 0; opacity: 0; pointer-events: none; overflow: hidden; }
+.tab.is-active .tab__head > * { min-height: 0; }
+.tab.is-active .tab__body { grid-template-rows: 1fr; opacity: 1; }
+
+.tab__top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
+.tab__thumb { width: 102px; height: 102px; border-radius: 2px; object-fit: cover; background: #ededeb; }
+.tab__close { width: 10px; height: 10px; color: var(--ink); }
+.tab__close svg { display: block; overflow: visible; }
+.tab__title { font-size: 20px; font-weight: 600; line-height: 1; letter-spacing: -0.2px; color: var(--text-1); margin-bottom: 16px; }
+.tab__text { font-size: 14px; line-height: 1.3; color: var(--text-1); }
+.tab__cta {
+  display: flex; justify-content: space-between; align-items: center; height: 66px; margin: 27px -5px 27px;
+  padding: 37px 20.77px 13px; background: #212121; border-radius: 2px; color: #fff; text-decoration: none;
+  font-size: 16px; font-weight: 600; line-height: 1; letter-spacing: -0.16px; transition: background 0.2s;
+}
+.tab__cta svg { fill: #fff; }
+.tab__cta:hover { background: #000; }
+
+/* small screens (not in Figma — sensible fallback) --------------------------- */
+@media (max-width: 900px) {
+  .products { flex-direction: column; height: auto; }
+  .products__main { height: 78svh; min-height: 560px; }
+  .products__intro { left: 20px; top: 40px; width: calc(100% - 40px); }
+  .products__title { font-size: 32px; letter-spacing: -0.9px; }
+  .products__rule { top: 180px; }
+  .products__lede { left: 20px; top: 200px; width: min(350px, calc(100% - 40px)); font-size: 15px; }
+  .products__nav { right: 20px; bottom: 24px; }
+  .products__panel { width: 100%; border-left: 0; border-top: 1px solid var(--line); }
+}

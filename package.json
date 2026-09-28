@@ -1,0 +1,24 @@
+{
+  "name": "amerilux-demo",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "models": "node tools/optimize.mjs ../export"
+  },
+  "description": "Amerilux product carousel — 3D Webflow embed",
+  "dependencies": {
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "@gltf-transform/core": "^4.5.0",
+    "@gltf-transform/extensions": "^4.5.0",
+    "@gltf-transform/functions": "^4.5.0",
+    "meshoptimizer": "^1.3.0",
+    "puppeteer-core": "^25.12.0",
+    "vite": "^8.3.1"
+  },
+  "private": true,
+  "type": "module"
+}
