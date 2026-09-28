@@ -88,7 +88,9 @@ export class Stage {
     this.current = 0;
     this.target = 0;
     this.active = 0;
-    this.pointer = new THREE.Vector2(0, 0);
+    this.pointer = new THREE.Vector2(0, 0); // raw, NDC
+    this.follow = new THREE.Vector2(0, 0); // spring-smoothed pointer driving the tilt
+    this.followVel = new THREE.Vector2(0, 0);
     this.timer = new THREE.Timer();
     this.raycaster = new THREE.Raycaster();
 
@@ -278,6 +280,12 @@ export class Stage {
     const n = this.items.length;
 
     this.current += (this.target - this.current) * (1 - Math.exp(-dt * 7));
+
+    // critically damped spring: heavy, lagging follow with no overshoot
+    const K = 9, C = 2 * Math.sqrt(K);
+    this.followVel.x += ((this.pointer.x - this.follow.x) * K - this.followVel.x * C) * dt;
+    this.followVel.y += ((this.pointer.y - this.follow.y) * K - this.followVel.y * C) * dt;
+    this.follow.addScaledVector(this.followVel, dt);
     const active = ((Math.round(this.current) % n) + n) % n;
     if (active !== this.active) {
       this.active = active;
@@ -288,7 +296,7 @@ export class Stage {
       if (!it.built) continue;
       const p = wrap(it.index - this.current, n);
       const a = ease(clamp01(1 - Math.abs(p)));
-      it.hover += ((this.hovered === it && a < 0.5 ? 1 : 0) - it.hover) * (1 - Math.exp(-dt * 10));
+      it.hover += ((this.hovered === it && a < 0.5 ? 1 : 0) - it.hover) * (1 - Math.exp(-dt * 5));
       it.pop += (1 - it.pop) * (1 - Math.exp(-dt * 4));
 
       // explode + recentre
@@ -300,15 +308,15 @@ export class Stage {
       const [f0, f1] = it.fit;
       const s0 = Math.min(SMALL.w / f0.w, SMALL.h / f0.h);
       const s1 = Math.min(BIG.w / f1.w, BIG.h / f1.h);
-      const s = THREE.MathUtils.lerp(s0, s1, a) * this.scale * (0.85 + 0.15 * it.pop) * (1 + it.hover * 0.06);
+      const s = THREE.MathUtils.lerp(s0, s1, a) * this.scale * (0.85 + 0.15 * it.pop) * (1 + it.hover * 0.04);
       it.root.scale.setScalar(s);
       it.root.position.set(slotX(p) * this.scale, it.hover * 6, 0);
       it.root.visible = Math.abs(p) < 3.6;
 
       // motion: gentle idle sway on active, pointer parallax
       const sway = this.reduced ? 0 : Math.sin(t * 0.5) * 0.18 * a;
-      it.tilt.rotation.y = it.def.yaw + sway + this.pointer.x * 0.12 * a;
-      it.tilt.rotation.x = -this.pointer.y * 0.06 * a;
+      it.tilt.rotation.y = it.def.yaw + sway + this.follow.x * 0.09 * a;
+      it.tilt.rotation.x = -this.follow.y * 0.045 * a;
       it.tilt.position.y = this.reduced ? 0 : Math.sin(t * 0.9 + it.index) * 4 * a;
 
       // luminosity -> tint
