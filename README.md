@@ -27,10 +27,12 @@ npm run models     # re-optimise GLBs from ../export into public/models
 
 | Tab | 3D |
 | --- | --- |
-| Panel Systems | GLB: female starter, 8" panel, 4.5" spacer, 8" panel, male starter |
-| Siding & Cladding | GLB: 16" / 18" EZ Liner |
-| Specialty Products | GLB: 8" pin corner, pin, 2.5" spacer |
-| Multiwall / Corrugated / Flat / Decking | procedural placeholders (`src/products.js`) |
+| Multiwall / Corrugated | extruded from APC profile drawings |
+| Flat Sheets | generic placeholder |
+| Panel Systems | GLB: EZ Liner 16" / 18" |
+| Decking & Railing | extruded DuxxBak 1080 section |
+| Siding & Cladding | extruded Elite lap siding section |
+| Specialty Products | GLB: EZ Forms 8" formwork assembly |
 
 See [PLACEHOLDERS.md](PLACEHOLDERS.md) for everything invented for the demo.
 

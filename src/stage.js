@@ -143,6 +143,7 @@ export class Stage {
     for (const o of meshes) {
       o.userData.item = it;
       mats.add(o.material);
+      if (o.userData.edges === 'none') continue;
       if (!edgeCache.has(o.geometry)) edgeCache.set(o.geometry, new THREE.EdgesGeometry(o.geometry, 28));
       const edges = new THREE.LineSegments(edgeCache.get(o.geometry), it.edgeMat);
       edges.raycast = () => {};
