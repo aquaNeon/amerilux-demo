@@ -44,7 +44,7 @@ bakes the Y-up rotation, centres each part and meshopt-compresses it (2.5 MB →
 **1. Script.** Page settings → Custom code → *Before `</body>`*:
 
 ```html
-<script type="module" src="https://<deploy-host>/amerilux-3d.js"></script>
+<script type="module" src="https://amerilux-demo.vercel.app/amerilux-3d.js"></script>
 ```
 
 Models load from `models/` next to the script. To host them elsewhere, set `data-amx-models="https://…/models/"` on the root.
