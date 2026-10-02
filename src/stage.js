@@ -1,17 +1,27 @@
-// WebGL carousel. Orthographic camera at 1 world unit = 1 CSS px so slot
-// positions/sizes map straight onto the Figma layout (Concept 17, 1512 x 940).
+// WebGL carousel. 1 world unit = 1 CSS px at the z = 0 plane so slot positions/sizes map
+// straight onto the Figma layout (Concept 17, 1512 x 940).
+// Three looks:
+//   'mono'   B&W illustration: orthographic camera, outlines, direct render
+//   'color'  photoreal: long-lens perspective matched to the same scale, studio environment,
+//            key-light self-shadowing on the active product, HDR pipeline (pipeline.js)
+//   'sketch' architectural graphite sketch, orthographic (sketch.js)
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { PRODUCTS } from './products.js';
+import { realMaterial, setTextureBase, studioEnvironment } from './materials.js';
+import { StudioPipeline } from './pipeline.js';
+import { SketchPipeline } from './sketch.js';
 
-// Figma measurements, relative to the 1141px-wide left column
+// Layout relative to the 1141px-wide left column (Figma, with the larger hero from the client's studio build)
 const DESIGN_W = 1141;
-const SLOT_X = [0, 302, 528, 754, 980]; // distance of slot centre from active centre
-const SMALL = { w: 174, h: 114 };
-const BIG = { w: 326, h: 318 };
+const SLOT_X = [0, 375, 610, 845, 1080]; // distance of slot centre from active centre
+const SMALL = { w: 160, h: 104 };
+const BIG = { w: 470, h: 410 };
 const ELEVATION = THREE.MathUtils.degToRad(34);
+const LENS_FOV = 18; // photoreal camera, vertical degrees
+const KEY_DIR = new THREE.Vector3(-0.42, 0.82, 0.38).normalize(); // photoreal key light
 
 const clamp01 = (v) => Math.min(1, Math.max(0, v));
 const ease = (t) => t * t * (3 - 2 * t);
@@ -20,6 +30,7 @@ const edgeCache = new WeakMap();
 const EDGE_ON = new THREE.Color(0x1f2a28);
 const EDGE_OFF = new THREE.Color(0x6b6b6b);
 const lum = (c) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+const grey = (c) => { const l = lum(c); return new THREE.Color(l, l, l); };
 
 // meshopt output is quantized (int16 positions, dequant scale on the node):
 // copy to float attributes and bake the node transform so parts are in inches
@@ -41,7 +52,68 @@ function bakeGeometry(mesh) {
   geo.applyMatrix4(mesh.matrixWorld);
   if (!geo.getAttribute('normal')) geo.computeVertexNormals();
   geo.computeBoundingBox();
+  geo.userData.quantized = true;
   return geo;
+}
+
+// Feature edges for quantized imported meshes. Their long, thin sliver triangles get noisy face
+// normals, which EdgesGeometry reads as creases in the middle of flat faces (drawn as dotted lines
+// that flicker against the face). Same rule as EdgesGeometry, but edges touching a sliver are skipped.
+function cleanEdges(geo, angle = 28, minAltitude = 0.006) {
+  const pos = geo.getAttribute('position');
+  const idx = geo.index ? geo.index.array : null;
+  const count = idx ? idx.length : pos.count;
+  const cos = Math.cos(THREE.MathUtils.degToRad(angle));
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  const ab = new THREE.Vector3(), ac = new THREE.Vector3(), n = new THREE.Vector3();
+  const key = (v) => `${Math.round(v.x * 1e4)},${Math.round(v.y * 1e4)},${Math.round(v.z * 1e4)}`;
+  const edges = new Map(); // "k0|k1" -> { v0, v1, n, sliver, faces }
+  for (let i = 0; i < count; i += 3) {
+    const vi = [0, 1, 2].map((k) => (idx ? idx[i + k] : i + k));
+    a.fromBufferAttribute(pos, vi[0]); b.fromBufferAttribute(pos, vi[1]); c.fromBufferAttribute(pos, vi[2]);
+    ab.subVectors(b, a); ac.subVectors(c, a);
+    n.crossVectors(ab, ac);
+    const area2 = n.length();
+    if (area2 < 1e-12) continue;
+    n.divideScalar(area2);
+    const longest = Math.max(ab.length(), ac.length(), b.distanceTo(c));
+    const sliver = area2 / longest < minAltitude; // altitude onto the longest side
+    const vs = [a.clone(), b.clone(), c.clone()];
+    for (let e = 0; e < 3; e++) {
+      const p0 = vs[e], p1 = vs[(e + 1) % 3];
+      const k0 = key(p0), k1 = key(p1);
+      if (k0 === k1) continue;
+      const k = k0 < k1 ? `${k0}|${k1}` : `${k1}|${k0}`;
+      const ed = edges.get(k);
+      if (!ed) edges.set(k, { p0, p1, n: n.clone(), sliver, faces: 1, keep: false });
+      else {
+        ed.faces++;
+        ed.keep = !ed.sliver && !sliver && ed.n.dot(n) <= cos;
+      }
+    }
+  }
+  const out = [];
+  for (const ed of edges.values()) {
+    if (ed.faces === 1 ? !ed.sliver : ed.keep) out.push(ed.p0.x, ed.p0.y, ed.p0.z, ed.p1.x, ed.p1.y, ed.p1.z);
+  }
+  return new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(out, 3));
+}
+
+// first opaque background behind the stage (the photoreal pipeline composites onto it)
+function backdropColor(el) {
+  for (let n = el; n; n = n.parentElement) {
+    const m = getComputedStyle(n).backgroundColor.match(/[\d.]+/g);
+    if (m && (m[3] === undefined || +m[3] > 0.5)) return new THREE.Color(`rgb(${m[0]}, ${m[1]}, ${m[2]})`);
+  }
+  return new THREE.Color(0xffffff);
+}
+
+// per-object focus weight for the sketch pass (the override materials carry uWeight)
+function setWeight(renderer, scene, camera, geometry, material) {
+  const u = material.uniforms?.uWeight;
+  if (!u) return;
+  u.value = (this.userData.item?.a ?? 1) * (this.userData.sketchWeight ?? 1);
+  material.uniformsNeedUpdate = true;
 }
 
 function slotX(p) {
@@ -52,37 +124,50 @@ function slotX(p) {
 }
 
 export class Stage {
-  constructor(el, { slugs, modelBase, centerX = 0.505, centerY = 0.64, onChange }) {
+  constructor(el, { slugs, modelBase, textureBase, centerX = 0.505, centerY = 0.67, onChange }) {
     this.el = el;
     this.slugs = slugs;
     this.modelBase = modelBase;
+    if (textureBase) setTextureBase(textureBase);
     this.centerX = centerX;
     this.centerY = centerY;
     this.onChange = onChange;
+    this.style = 'color';
     this.reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-    this.renderer.toneMapping = THREE.NeutralToneMapping;
-    this.renderer.toneMappingExposure = 0.95;
-    this.canvas = this.renderer.domElement;
+    const r = this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+    r.setPixelRatio(Math.min(devicePixelRatio, 2));
+    r.toneMapping = THREE.NeutralToneMapping; // mono only: render targets skip it, the pipeline tones photoreal
+    r.toneMappingExposure = 0.95;
+    r.shadowMap.enabled = true;
+    r.shadowMap.autoUpdate = false;
+    this.canvas = r.domElement;
     this.canvas.className = 'amx-canvas';
     el.appendChild(this.canvas);
 
     this.scene = new THREE.Scene();
-    const pmrem = new THREE.PMREMGenerator(this.renderer);
-    this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    const pmrem = new THREE.PMREMGenerator(r);
+    this.envIllus = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
     pmrem.dispose();
-    this.scene.environmentIntensity = 0.55;
-    const key = new THREE.DirectionalLight(0xffffff, 2.2);
-    key.position.set(-300, 600, 400);
-    this.scene.add(key, new THREE.HemisphereLight(0xffffff, 0x9aa3a2, 0.5));
+    this.envReal = studioEnvironment(r);
+    this.key = new THREE.DirectionalLight(0xffffff, 2.2);
+    this.key.shadow.mapSize.set(2048, 2048);
+    this.key.shadow.bias = -0.0003;
+    this.hemi = new THREE.HemisphereLight(0xffffff, 0x9aa3a2, 0.5);
+    this.scene.add(this.key, this.key.target, this.hemi);
 
-    this.camera = new THREE.OrthographicCamera();
-    this.camera.position.set(0, Math.sin(ELEVATION), Math.cos(ELEVATION)).multiplyScalar(2000);
-    this.camera.lookAt(0, 0, 0);
-    this.camera.near = 1;
-    this.camera.far = 5000;
+    this.bg = backdropColor(el);
+    this.pipe = new StudioPipeline(r);
+    this.pipe.fin.uniforms.uBg.value.copy(this.bg);
+    this.sketch = new SketchPipeline(r);
+    this.sketch.setBackground(this.bg);
+
+    this.ortho = new THREE.OrthographicCamera();
+    this.ortho.position.set(0, Math.sin(ELEVATION), Math.cos(ELEVATION)).multiplyScalar(2000);
+    this.ortho.lookAt(0, 0, 0);
+    this.ortho.near = 1000; // tight range around the 2000 px camera distance: depth precision for thin skins (sketch outlines)
+    this.ortho.far = 3000;
+    this.persp = new THREE.PerspectiveCamera(LENS_FOV, 1, 10, 40000);
 
     this.items = slugs.map((slug, index) => this.createItem(slug, index));
     this.current = 0;
@@ -93,14 +178,24 @@ export class Stage {
     this.followVel = new THREE.Vector2(0, 0);
     this.timer = new THREE.Timer();
     this.raycaster = new THREE.Raycaster();
+    this._box = new THREE.Box3();
+    this._v = new THREE.Vector3();
+    this.frames = 0;
 
     this.resize();
     new ResizeObserver(() => this.resize()).observe(el);
     this.bindPointer();
     this.bindVisibility();
-    this.ready = this.loadParts().then(() => this.items.forEach((it) => this.buildItem(it)));
-    this.renderer.setAnimationLoop(() => this.tick());
+    this.applyStyle();
+    this.ready = this.loadParts().then(() => {
+      this.items.forEach((it) => this.buildItem(it));
+      this.applyStyle();
+      this.precompile();
+    });
+    r.setAnimationLoop(() => this.tick());
   }
+
+  get camera() { return this.style === 'color' ? this.persp : this.ortho; }
 
   // --- items ----------------------------------------------------------------
 
@@ -113,7 +208,7 @@ export class Stage {
     tilt.add(content);
     root.visible = false;
     this.scene.add(root);
-    return { slug, index, def, root, tilt, content, layers: [], materials: [], built: false, hover: 0, pop: 0 };
+    return { slug, index, def, root, tilt, content, layers: [], materials: [], reals: [], meshes: [], edges: [], built: false, hover: 0, pop: 0 };
   }
 
   async loadParts() {
@@ -138,26 +233,106 @@ export class Stage {
       it.content.add(l.object);
       l.object.traverse((o) => { if (o.isMesh) meshes.push(o); });
     }
-    // crisp outline pass: reads as a product illustration on the light background
+    // B&W outlines; photoreal keeps outlines only on see-through sheets (tinted cut edges)
     it.edgeMat = new THREE.LineBasicMaterial({ color: EDGE_ON, transparent: true, opacity: 0.75 });
+    const realOf = new Map();
+    const edgeOf = new Map();
     for (const o of meshes) {
       o.userData.item = it;
       mats.add(o.material);
-      if (o.userData.edges === 'none') continue;
-      if (!edgeCache.has(o.geometry)) edgeCache.set(o.geometry, new THREE.EdgesGeometry(o.geometry, 28));
-      const edges = new THREE.LineSegments(edgeCache.get(o.geometry), it.edgeMat);
-      edges.raycast = () => {};
-      o.add(edges);
+      // photoreal twin of each illustrated material, shared the same way
+      if (!realOf.has(o.material)) {
+        const real = realMaterial(o.material.userData.finish, o.material.userData);
+        realOf.set(o.material, real);
+        const ed = real.userData.edge;
+        if (ed) {
+          const m = new THREE.LineBasicMaterial({ color: ed[0], transparent: true, opacity: ed[1] });
+          edgeOf.set(real, { m, color: m.color.clone(), grey: grey(m.color) });
+        }
+      }
+      const real = realOf.get(o.material);
+      o.userData.illus = o.material;
+      o.userData.real = real;
+      o.userData.see = real.userData.see;
+      o.onBeforeRender = setWeight;
+      // inner parts (multiwall ribs) only get sketch outlines when the sheet around them is see-through
+      if (o.userData.edges === 'none' && !o.userData.see) continue;
+      // ready-made sketch linework (multiwall ribs) or the mesh's feature edges
+      const src = o.userData.edgeGeo || o.geometry;
+      let lineGeo = o.userData.edges === 'none' && o.userData.sketchLines;
+      if (!lineGeo) {
+        if (!edgeCache.has(src)) edgeCache.set(src, src.userData.quantized ? cleanEdges(src) : new THREE.EdgesGeometry(src, 28));
+        lineGeo = edgeCache.get(src);
+      }
+      const line = new THREE.LineSegments(lineGeo, it.edgeMat);
+      line.raycast = () => {};
+      line.onBeforeRender = setWeight;
+      line.layers.enable(1); // sketch outline pass
+      line.userData.real = edgeOf.get(real)?.m;
+      line.userData.item = it;
+      line.userData.sketchOnly = o.userData.edges === 'none'; // e.g. multiwall ribs: drawn only in the sketch
+      // lighter pencil for inner ribs and see-through sheets
+      line.userData.sketchWeight = line.userData.sketchOnly ? 0.22 : o.userData.see ? 0.6 : 1;
+      o.add(line);
+      it.edges.push(line);
     }
+    it.see = meshes.filter((o) => o.userData.see);
+    it.meshes = meshes;
+    it.reals = [...realOf.values()].map((m) => ({ m, color: m.color.clone(), grey: grey(m.color) }));
+    it.realEdges = [...edgeOf.values()];
     it.materials = [...mats].map((m) => {
-      const color = m.color.clone();
-      const g = 0.62 + lum(color) * 0.3;
-      return { m, color, grey: new THREE.Color(g, g, g), opacity: m.opacity };
+      const g = 0.62 + lum(m.color) * 0.3;
+      return { m, grey: new THREE.Color(g, g, g), mono: grey(m.color), opacity: m.opacity };
     });
     this.measure(it);
     it.tilt.rotation.y = it.def.yaw;
     it.built = true;
     it.root.visible = true;
+  }
+
+  // --- style ----------------------------------------------------------------
+
+  setStyle(style) {
+    this.style = ['mono', 'sketch'].includes(style) ? style : 'color';
+    this.applyStyle();
+  }
+
+  applyStyle() {
+    const real = this.style === 'color';
+    const sketch = this.style === 'sketch';
+    this.scene.environment = real ? this.envReal : this.envIllus;
+    this.scene.environmentIntensity = real ? 1 : 0.55;
+    this.key.intensity = real ? 2.3 : 2.2;
+    this.key.color.set(real ? 0xf3f7ff : 0xffffff); // photoreal: slightly cool daylight
+    this.key.castShadow = real;
+    if (!real) { this.key.position.set(-300, 600, 400); this.key.target.position.set(0, 0, 0); }
+    this.hemi.visible = !real;
+    for (const it of this.items) {
+      for (const o of it.meshes) {
+        o.material = real ? o.userData.real : o.userData.illus;
+        o.castShadow = o.receiveShadow = real && !o.userData.see;
+      }
+      for (const l of it.edges) {
+        l.material = real ? l.userData.real || it.edgeMat : it.edgeMat;
+        l.visible = !sketch && !l.userData.sketchOnly && (!real || !!l.userData.real);
+      }
+    }
+  }
+
+  // compile the other style's programs now (in parallel where supported) so the switch doesn't hitch
+  precompile() {
+    const style = this.style;
+    this.style = style === 'color' ? 'mono' : 'color';
+    this.applyStyle();
+    this.renderer.compileAsync(this.scene, this.camera).catch(() => {});
+    this.style = style;
+    this.applyStyle();
+  }
+
+  // every outline object, and the see-through meshes the sketch draws as linework only
+  sketchLists() {
+    const built = this.items.filter((i) => i.built);
+    return { lines: built.flatMap((i) => i.edges), hide: built.flatMap((i) => i.see) };
   }
 
   setExplode(it, e) {
@@ -166,7 +341,7 @@ export class Stage {
 
   // screen-space extents (px per inch at scale 1) for assembled and exploded states
   measure(it) {
-    const view = new THREE.Matrix4().makeRotationFromQuaternion(this.camera.quaternion.clone().invert());
+    const view = new THREE.Matrix4().makeRotationFromQuaternion(this.ortho.quaternion.clone().invert());
     const yaw = new THREE.Matrix4().makeRotationY(it.def.yaw);
     const m = view.multiply(yaw);
     const box = new THREE.Box3();
@@ -189,6 +364,22 @@ export class Stage {
     });
   }
 
+  // key light + shadow frustum wrapped tightly around one item
+  fitShadow(it) {
+    const b = this._box.setFromObject(it.tilt);
+    const c = b.getCenter(this._v);
+    const R = Math.max(1, b.getSize(new THREE.Vector3()).length() * 0.55);
+    this.key.target.position.copy(c);
+    this.key.position.copy(c).addScaledVector(KEY_DIR, R * 4);
+    const sc = this.key.shadow.camera;
+    Object.assign(sc, { left: -R, right: R, top: R, bottom: -R, near: R, far: R * 8 });
+    sc.updateProjectionMatrix();
+    // ~0.012 in: must stay under the wall thickness of hollow profiles or inner webs shadow the face
+    this.key.shadow.normalBias = it.root.scale.x * 0.012;
+    this.key.target.updateMatrixWorld();
+    this.renderer.shadowMap.needsUpdate = true;
+  }
+
   // --- navigation -------------------------------------------------------------
 
   go(index) {
@@ -209,8 +400,20 @@ export class Stage {
     this.scale = THREE.MathUtils.clamp(w / DESIGN_W, 0.45, 1.5);
     const cx = w * this.centerX;
     const cy = h * this.centerY;
-    Object.assign(this.camera, { left: -cx, right: w - cx, top: cy, bottom: cy - h });
-    this.camera.updateProjectionMatrix();
+    Object.assign(this.ortho, { left: -cx, right: w - cx, top: cy, bottom: cy - h });
+    this.ortho.updateProjectionMatrix();
+    // long lens whose z = 0 plane matches the ortho pixel scale, centred on the same point
+    const D = h / 2 / Math.tan(THREE.MathUtils.degToRad(LENS_FOV / 2));
+    const P = this.persp;
+    P.position.set(0, Math.sin(ELEVATION), Math.cos(ELEVATION)).multiplyScalar(D);
+    P.lookAt(0, 0, 0);
+    P.near = D * 0.72;
+    P.far = D * 1.32;
+    P.setViewOffset(w, h, w / 2 - cx, h / 2 - cy, w, h);
+    P.updateProjectionMatrix();
+    const db = this.renderer.getDrawingBufferSize(new THREE.Vector2());
+    this.pipe.setSize(db.x, db.y);
+    this.sketch.setSize(db.x, db.y, db.x / w);
   }
 
   // --- input ------------------------------------------------------------------
@@ -273,12 +476,26 @@ export class Stage {
 
   // --- frame ------------------------------------------------------------------
 
+  // drop to 1x pixel ratio if frames run long (photoreal on weak GPUs)
+  adapt(raw) {
+    this.ema = this.ema == null ? 0.016 : this.ema * 0.95 + Math.min(raw, 0.2) * 0.05;
+    if (++this.frames > 90 && this.ema > 0.034 && this.renderer.getPixelRatio() > 1) {
+      this.renderer.setPixelRatio(1);
+      this.resize();
+      this.ema = 0.016;
+      this.frames = 0;
+    }
+  }
+
   tick() {
     this.timer.update();
-    const dt = Math.min(this.timer.getDelta(), 0.05);
+    const raw = this.timer.getDelta();
+    const dt = Math.min(raw, 0.05);
     if (!this.visible || document.hidden || !this.w) return;
+    this.adapt(raw);
     const t = this.timer.getElapsed();
     const n = this.items.length;
+    const real = this.style === 'color';
 
     this.current += (this.target - this.current) * (1 - Math.exp(-dt * 7));
 
@@ -313,6 +530,7 @@ export class Stage {
       it.root.scale.setScalar(s);
       it.root.position.set(slotX(p) * this.scale, it.hover * 6, 0);
       it.root.visible = Math.abs(p) < 3.6;
+      it.a = a;
 
       // motion: gentle idle sway on active, pointer parallax
       const sway = this.reduced ? 0 : Math.sin(t * 0.3) * 0.07 * a;
@@ -320,15 +538,25 @@ export class Stage {
       it.tilt.rotation.x = -this.follow.y * 0.045 * a;
       it.tilt.position.y = this.reduced ? 0 : Math.sin(t * 0.45 + it.index) * 1.5 * a;
 
-      // luminosity -> tint
-      for (const m of it.materials) {
-        m.m.color.copy(m.grey).lerp(m.color, a);
-        if (m.m.transparent) m.m.opacity = THREE.MathUtils.lerp(Math.min(1, m.opacity + 0.2), m.opacity, a);
+      // inactive -> active: B&W light grey -> mid grey (photoreal keeps full colour on every product)
+      if (!real) {
+        for (const m of it.materials) {
+          m.m.color.lerpColors(m.grey, m.mono, a);
+          if (m.m.transparent) m.m.opacity = THREE.MathUtils.lerp(Math.min(1, m.opacity + 0.2), m.opacity, a);
+        }
+        it.edgeMat.color.copy(EDGE_OFF).lerp(EDGE_ON, a);
+        it.edgeMat.opacity = 0.45 + 0.35 * a;
       }
-      it.edgeMat.color.copy(EDGE_OFF).lerp(EDGE_ON, a);
-      it.edgeMat.opacity = 0.45 + 0.35 * a;
     }
-    this.renderer.render(this.scene, this.camera);
+
+    if (this.style === 'sketch') {
+      this.sketch.render(this.scene, this.ortho, { ...this.sketchLists(), time: t });
+    } else if (real) {
+      if (this.items[this.active].built) this.fitShadow(this.items[this.active]);
+      this.pipe.render(this.scene, this.persp, { aoRadius: 34 * this.scale, ao: 1.6, time: t });
+    } else {
+      this.renderer.render(this.scene, this.ortho);
+    }
   }
 
   // --- thumbnails -------------------------------------------------------------
@@ -337,9 +565,10 @@ export class Stage {
   snapshot(index, size = 204) {
     const it = this.items[index];
     if (!it?.built) return null;
-    const rt = new THREE.WebGLRenderTarget(size, size, { samples: 4 });
-    rt.texture.colorSpace = THREE.SRGBColorSpace;
-    const cam = this.camera.clone();
+    const real = this.style === 'color';
+    const r = this.renderer;
+    const rt = new THREE.WebGLRenderTarget(size, size, this.style === 'mono' ? { samples: 4 } : {});
+    const cam = this.ortho.clone();
     const f = it.fit[1];
     const half = Math.max(f.w, f.h) * 0.54;
     Object.assign(cam, { left: -half, right: half, top: half, bottom: -half });
@@ -354,17 +583,40 @@ export class Stage {
     it.root.scale.setScalar(1);
     it.tilt.rotation.set(0, it.def.yaw, 0);
     it.tilt.position.y = 0;
-    for (const m of it.materials) { m.m.color.copy(m.color); m.m.opacity = m.opacity; }
-    const bg = this.scene.background;
-    this.scene.background = new THREE.Color(0xededeb);
+    for (const m of it.materials) { m.m.color.copy(m.mono); m.m.opacity = m.opacity; }
+    for (const m of it.reals) { m.m.color.copy(m.color); m.m.userData.u.amxSat.value = 1; }
+    for (const m of it.realEdges) m.m.color.copy(m.color);
+    it.edgeMat.color.copy(EDGE_ON);
+    it.edgeMat.opacity = 0.8;
 
-    this.renderer.setRenderTarget(rt);
-    this.renderer.render(this.scene, cam);
+    it.a = 1;
+    if (this.style === 'sketch') {
+      if (!this.thumbSketch) {
+        this.thumbSketch = new SketchPipeline(r);
+        this.thumbSketch.setSize(size, size, 2);
+        this.thumbSketch.setBackground(new THREE.Color(0xededeb));
+      }
+      this.thumbSketch.render(this.scene, cam, { hide: it.see, lines: it.edges, out: rt });
+    } else if (real) {
+      if (!this.thumbPipe) {
+        this.thumbPipe = new StudioPipeline(r);
+        this.thumbPipe.setSize(size, size);
+        this.thumbPipe.fin.uniforms.uBg.value.set(0xededeb);
+      }
+      this.fitShadow(it);
+      this.thumbPipe.render(this.scene, cam, { out: rt, grain: 0, bloom: 0, aoRadius: half * 0.05 });
+    } else {
+      rt.texture.colorSpace = THREE.SRGBColorSpace;
+      const bg = this.scene.background;
+      this.scene.background = new THREE.Color(0xededeb);
+      r.setRenderTarget(rt);
+      r.render(this.scene, cam);
+      this.scene.background = bg;
+    }
     const px = new Uint8Array(size * size * 4);
-    this.renderer.readRenderTargetPixels(rt, 0, 0, size, size, px);
-    this.renderer.setRenderTarget(null);
+    r.readRenderTargetPixels(rt, 0, 0, size, size, px);
+    r.setRenderTarget(null);
 
-    this.scene.background = bg;
     this.items.forEach((i, k) => { i.root.visible = saved[k]; });
     it.root.position.copy(pose.p);
     it.root.scale.setScalar(pose.s);

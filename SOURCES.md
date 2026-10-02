@@ -19,3 +19,7 @@
 - Interactions
 
 Details: [PLACEHOLDERS.md](PLACEHOLDERS.md)
+
+## Textures
+
+- `public/textures/deck-oak_*`: "Oak Veneer 01" by Poly Haven (https://polyhaven.com/a/oak_veneer_01), CC0. Placeholder for the decking until we have photos of the real DuxxBak colourways. Recompressed: colour 1k JPEG, normal + roughness 512 px (~225 KB total).

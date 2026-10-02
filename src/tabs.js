@@ -26,9 +26,10 @@ export class Tabs {
   fillThumbs(render) {
     this.items.forEach((el, i) => {
       const img = el.querySelector('img[data-amx-thumb]');
-      if (img && !img.getAttribute('src')) {
+      // fill empty thumbs; re-render ones we filled before (data-amx-gen) on style change
+      if (img && (!img.getAttribute('src') || 'amxGen' in img.dataset)) {
         const url = render(i);
-        if (url) img.src = url;
+        if (url) { img.src = url; img.dataset.amxGen = ''; }
       }
     });
   }

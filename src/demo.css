@@ -38,6 +38,12 @@ h1, h2, p { margin: 0; }
 .nav-btn:hover { background: rgba(0, 0, 0, 0.18); }
 .nav-btn--prev svg { transform: scaleX(-1); }
 
+/* style switch (demo only: compare the two model looks) */
+.style-switch { position: absolute; z-index: 2; top: 24px; right: 24px; display: flex; padding: 3px; gap: 3px; border-radius: 2px; background: rgba(0, 0, 0, 0.06); border: 1px solid rgba(0, 0, 0, 0.12); }
+.style-switch__btn { height: 28px; padding: 0 12px; border-radius: 1px; font: 500 12px/1 var(--mono); letter-spacing: 0.6px; text-transform: uppercase; color: rgba(0, 0, 0, 0.55); transition: background 0.2s, color 0.2s; }
+.style-switch__btn:hover { color: var(--ink); }
+.style-switch__btn.is-active, .style-switch__btn.is-active:hover { background: var(--ink); color: #fff; }
+
 /* right panel / tabs -------------------------------------------------------- */
 .products__panel { width: var(--panel-w); flex: none; background: var(--panel); border-left: 1px solid var(--line); overflow-y: auto; }
 .tab { border-top: 1px solid var(--line); }
@@ -86,5 +92,6 @@ h1, h2, p { margin: 0; }
   .products__rule { top: 180px; }
   .products__lede { left: 20px; top: 200px; width: min(350px, calc(100% - 40px)); font-size: 15px; }
   .products__nav { right: 20px; bottom: 24px; }
+  .style-switch { top: 12px; right: 12px; }
   .products__panel { width: 100%; border-left: 0; border-top: 1px solid var(--line); }
 }
