@@ -7,7 +7,7 @@
 //       embed-css.txt    CSS embed, to replace the embed's code on later updates
 //       embed-js.txt     JS embed
 //       preview.html     the section on a page with the live site CSS, running the local cdn/ build
-//   python -m http.server 5173   (from the repo root) -> http://127.0.0.1:5173/dist/webflow/paste.html
+//   python -m http.server 5174   (from the repo root) -> http://127.0.0.1:5174/dist/webflow/paste.html
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -207,7 +207,8 @@ ${variants.map((v) => `<div class="row"><div><b>${v.label}</b><p>${v.note}</p></
 // Wraps get sample copy (preview only) so the layout reads as it will with the site's components.
 const site = (() => { try { return read('webflow/site.html'); } catch { return ''; } })();
 const siteCss = [...site.matchAll(/<link href="(https:\/\/cdn\.prod\.website-files\.com\/[^"]+\.css)"/g)].map((m) => m[1]);
-const siteEmbeds = [...site.matchAll(/<div class="u-embed-css w-embed">([\s\S]*?)<\/div>/g)].map((m) => m[1]).join('\n');
+// the site's global CSS embeds: whole <style> blocks only (an embed can contain other markup)
+const siteEmbeds = [...site.matchAll(/<div class="u-embed-css w-embed">\s*(<style>[\s\S]*?<\/style>)/g)].map((m) => m[1]).join('\n');
 const sample = {
   _3dslider_eyebrow_wrap: '<div style="display:inline-flex;align-items:center;gap:10px;padding:10px 15px;background:var(--_swatch---red);color:#fff;font:500 14px/1 var(--_typography---font--secondary-family);letter-spacing:.05em;text-transform:uppercase">Our products</div>',
   _3dslider_title_wrap: '<h2 class="u-text-style-h2" style="font-size:42px;font-weight:600;line-height:1;letter-spacing:-.03em">Building materials for every environment. Made to measure.</h2>',
