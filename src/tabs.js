@@ -2,7 +2,7 @@
 //   [data-amx-item="<slug>"]  item wrapper, gets .is-active
 //     [data-amx-trigger]      collapsed header (click -> select)
 //     [data-amx-close]        optional, collapses the open item
-//     img[data-amx-thumb]     optional, left empty -> filled from the 3D render
+//     img[data-amx-thumb]     optional, left empty (or Webflow placeholder) -> filled from the 3D render
 // Click handler for anything Webflow builds a button from: <button>, Link Block (<a href="#">, no jump)
 // or a plain div (made focusable, Enter / Space press it)
 export function onPress(el, fn) {
@@ -37,10 +37,12 @@ export class Tabs {
     });
   }
 
-  // fill an empty thumb; re-render ones we filled before (data-amx-gen) on style change
+  // fill an empty thumb (no src, or Webflow's image placeholder); re-render ones we filled before
+  // (data-amx-gen) on style change
   fillThumb(i, render) {
     const img = this.items[i]?.querySelector('img[data-amx-thumb]');
-    if (img && (!img.getAttribute('src') || 'amxGen' in img.dataset)) {
+    const src = img?.getAttribute('src');
+    if (img && (!src || /\/placeholder\.\w+\.svg$/.test(src) || 'amxGen' in img.dataset)) {
       Promise.resolve(render(i)).then((url) => { if (url) { img.src = url; img.dataset.amxGen = ''; } });
     }
   }

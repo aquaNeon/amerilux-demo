@@ -1,0 +1,141 @@
+<!--
+  Source for the Webflow paste (tools/build-webflow.mjs -> dist/webflow/paste.html).
+  One class per element, no styles on classes (all styling is in the CSS embed), no text in the
+  *_wrap divs: drop the site's eyebrow / heading / paragraph / button components into them.
+  The JS only looks at data-amx-* attributes and toggles .is-active (see src/tabs.js).
+  __JS_SRC__ is replaced with the jsDelivr URL of the cdn/ build at its pinned commit.
+-->
+<section class="_3dslider_wrap" data-amx-root>
+<wf-embed class="u-embed-css"><style>
+/* ---- layout: canvas column + tab panel (Figma: AmeriLux Design / Concept 17) ---- */
+._3dslider_wrap {
+  background-color: var(--_swatch---light-2);
+  overflow: hidden;
+  container: _3dslider / inline-size;
+}
+._3dslider_layout { display: flex; height: max(47.5rem, 100svh); }
+
+/* left column: the canvas fills it, copy and controls sit on top */
+._3dslider_main { position: relative; flex: 1; min-width: 0; }
+._3dslider_stage { position: absolute; inset: 0; }
+._3dslider_header, ._3dslider_rule, ._3dslider_text_wrap, ._3dslider_nav_wrap { position: absolute; z-index: 1; }
+._3dslider_header {
+  left: 4rem; top: 6.1875rem; width: min(36.5625rem, 100% - 8rem);
+  display: flex; flex-direction: column; align-items: flex-start; gap: var(--_spacers---space--4);
+  pointer-events: none;
+}
+._3dslider_rule { left: 0; right: 0; top: 16.6875rem; border-top: 1px solid var(--_swatch---border-dark); }
+._3dslider_text_wrap { left: 4rem; top: 18.1875rem; width: 21.875rem; pointer-events: none; }
+
+._3dslider_nav_wrap { right: 3.875rem; bottom: 4.1875rem; display: flex; gap: 0.4375rem; }
+._3dslider_nav_btn {
+  display: grid; place-items: center; width: 2.875rem; height: 4.125rem; padding-top: 1.25rem;
+  border-radius: var(--radius--tiny); border: 1px solid var(--_swatch---alpha--alpha-dark-20);
+  background-color: var(--_swatch---alpha--alpha-dark-10);
+  -webkit-backdrop-filter: blur(25px); backdrop-filter: blur(25px);
+  cursor: pointer; transition: background-color 0.2s;
+}
+._3dslider_nav_btn:hover { background-color: color-mix(in srgb, var(--_swatch---dark-2) 18%, transparent); }
+/* arrow: a 6 x 12 triangle pointing right, flipped on the previous button */
+._3dslider_nav_icon { width: 0.375rem; height: 0.75rem; background-color: var(--_swatch---dark-2); clip-path: polygon(0 0, 100% 50%, 0 100%); }
+[data-amx-prev] ._3dslider_nav_icon { transform: scaleX(-1); }
+
+/* style switch: Color / B&W / Sketch (the script marks the current one .is-active) */
+._3dslider_style_wrap {
+  position: absolute; z-index: 2; top: 1.5rem; right: 1.5rem; display: flex; gap: 3px; padding: 3px;
+  border-radius: var(--radius--tiny); border: 1px solid var(--_swatch---border-dark);
+  background-color: var(--_swatch---alpha--alpha-dark-5);
+}
+._3dslider_style_btn {
+  display: flex; align-items: center; height: 1.75rem; padding: 0 0.75rem; border-radius: 1px; cursor: pointer;
+  font-family: var(--_typography---font--secondary-family); font-weight: 500; font-size: 0.75rem; line-height: 1;
+  letter-spacing: 0.05em; text-transform: uppercase;
+  color: color-mix(in srgb, var(--_swatch---dark-2) 55%, transparent);
+  transition: background-color 0.2s, color 0.2s;
+}
+._3dslider_style_btn:hover { color: var(--_swatch---dark-2); }
+._3dslider_style_btn.is-active, ._3dslider_style_btn.is-active:hover { background-color: var(--_swatch---dark-2); color: var(--_swatch---light-1); }
+
+/* ---- right panel: accordion, one item open (.is-active, set by the script) ---- */
+._3dslider_panel {
+  flex: none; width: 23.1875rem; overflow-y: auto;
+  background-color: var(--_swatch---light-1); border-left: 1px solid var(--_swatch---border-dark);
+}
+._3dslider_tab_wrap { border-top: 1px solid var(--_swatch---border-dark); }
+._3dslider_tab_wrap:first-child { border-top: 0; }
+._3dslider_tab_wrap:last-child { border-bottom: 1px solid var(--_swatch---border-dark); }
+
+/* both rows animate their height with grid-template-rows 0fr <-> 1fr */
+._3dslider_tab_head, ._3dslider_tab_body { display: grid; }
+._3dslider_tab_head {
+  grid-template-rows: 1fr; grid-template-columns: 1fr 0.75rem; column-gap: 1.5rem; align-items: center;
+  padding: 1.5rem 1.96875rem; cursor: pointer;
+  transition: grid-template-rows 0.45s cubic-bezier(0.6, 0, 0.2, 1), padding 0.45s cubic-bezier(0.6, 0, 0.2, 1), opacity 0.2s;
+}
+._3dslider_tab_head:hover { opacity: 0.6; }
+._3dslider_tab_head > * { min-height: 0; overflow: hidden; }
+._3dslider_tab_caret { width: 0.75rem; height: 0.375rem; background-color: var(--_swatch---dark-2); clip-path: polygon(0 0, 100% 0, 50% 100%); }
+
+._3dslider_tab_body { grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows 0.45s cubic-bezier(0.6, 0, 0.2, 1), opacity 0.3s; }
+._3dslider_tab_inner { min-height: 0; overflow: hidden; padding: 0 1.96875rem; }
+._3dslider_tab_inner > :first-child { margin-top: 1.5rem; }
+._3dslider_tab_wrap:first-child ._3dslider_tab_inner > :first-child { margin-top: 2.4375rem; }
+
+._3dslider_tab_wrap.is-active ._3dslider_tab_head { grid-template-rows: 0fr; padding-block: 0; opacity: 0; pointer-events: none; overflow: hidden; }
+._3dslider_tab_wrap.is-active ._3dslider_tab_body { grid-template-rows: 1fr; opacity: 1; }
+
+._3dslider_tab_top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; }
+._3dslider_tab_thumb { width: 6.375rem; height: 6.375rem; border-radius: var(--radius--tiny); object-fit: cover; background-color: #ededeb; }
+/* close: a 10 x 10 cross */
+._3dslider_tab_close { position: relative; width: 0.625rem; height: 0.625rem; cursor: pointer; }
+._3dslider_tab_close::before, ._3dslider_tab_close::after {
+  content: ""; position: absolute; left: 50%; top: 50%; width: 0.875rem; height: 2px;
+  background-color: var(--_swatch---dark-2); transform: translate(-50%, -50%) rotate(45deg);
+}
+._3dslider_tab_close::after { transform: translate(-50%, -50%) rotate(-45deg); }
+._3dslider_tab_title_wrap { margin-bottom: var(--_spacers---space--4); }
+._3dslider_tab_actions_wrap { margin-block: 1.6875rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  ._3dslider_tab_head, ._3dslider_tab_body { transition: none; }
+}
+
+/* ---- tablet and down: stage on top, panel below (not in Figma) ---- */
+@container _3dslider (width < 62em) {
+  ._3dslider_layout { flex-direction: column; height: auto; }
+  ._3dslider_main { flex: none; height: 78svh; min-height: 35rem; }
+  ._3dslider_header { left: var(--site--margin); top: 2.5rem; width: calc(100% - var(--site--margin) * 2); }
+  ._3dslider_rule { top: 11.25rem; }
+  ._3dslider_text_wrap { left: var(--site--margin); top: 12.5rem; width: min(21.875rem, 100% - var(--site--margin) * 2); }
+  ._3dslider_nav_wrap { right: var(--site--margin); bottom: 1.5rem; }
+  ._3dslider_style_wrap { top: 0.75rem; right: 0.75rem; }
+  ._3dslider_panel { width: 100%; border-left: 0; border-top: 1px solid var(--_swatch---border-dark); }
+}
+</style></wf-embed>
+<div class="_3dslider_layout">
+  <div class="_3dslider_main">
+    <div class="_3dslider_stage" data-amx-stage></div>
+    <div class="_3dslider_header">
+      <div class="_3dslider_eyebrow_wrap"></div>
+      <div class="_3dslider_title_wrap"></div>
+    </div>
+    <div class="_3dslider_style_wrap" role="group" aria-label="Model style">
+      <div class="_3dslider_style_btn" data-amx-set-style="color">Color</div>
+      <div class="_3dslider_style_btn" data-amx-set-style="mono">B&amp;W</div>
+      <div class="_3dslider_style_btn" data-amx-set-style="sketch">Sketch</div>
+    </div>
+    <div class="_3dslider_rule"></div>
+    <div class="_3dslider_text_wrap"></div>
+    <div class="_3dslider_nav_wrap">
+      <div class="_3dslider_nav_btn" data-amx-prev aria-label="Previous product"><div class="_3dslider_nav_icon"></div></div>
+      <div class="_3dslider_nav_btn" data-amx-next aria-label="Next product"><div class="_3dslider_nav_icon"></div></div>
+    </div>
+  </div>
+  <div class="_3dslider_panel">
+    <div class="_3dslider_tabs">
+__TABS__
+    </div>
+  </div>
+</div>
+<wf-embed class="u-embed-js"><script type="module" src="__JS_SRC__"></script></wf-embed>
+</section>
