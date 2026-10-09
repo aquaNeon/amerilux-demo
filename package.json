@@ -5,7 +5,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "models": "node tools/optimize.mjs ../export"
+    "models": "node tools/optimize.mjs ../export",
+    "build:webflow": "vite build -c vite.webflow.config.js"
   },
   "description": "Amerilux product carousel — 3D Webflow embed",
   "dependencies": {
