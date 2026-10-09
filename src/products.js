@@ -214,12 +214,24 @@ function mr9Line(width) {
   return roundPts(pts, 0.1, 4, false);
 }
 
-function sineLine(width, pitch, depth) {
-  const n = Math.ceil((width / pitch) * 24);
-  return Array.from({ length: n + 1 }, (_, i) => {
-    const x = (i / n) * width;
-    return [x, (depth / 2) * (1 - Math.cos((x / pitch) * Math.PI * 2))];
-  });
+// "Sine wave" as drawn (Amerilux Profiles-Current.pdf, P2053 Sinus 2.67): crest and valley arcs of
+// radius r joined by straight flanks, not a true sine. Starts in a valley at x = 0.
+function arcWaveLine(width, pitch, depth, r) {
+  // flank = inner tangent of the valley circle (centre (0, r)) and the crest circle
+  // (centre (pitch / 2, depth - r)); it touches each circle at horizontal offset a from its centre
+  const dx = pitch / 2, dy = depth - 2 * r, d = Math.hypot(dx, dy);
+  const ang = Math.atan2(dy, dx) - Math.acos((2 * r) / d); // valley radius to the tangent point
+  const a = r * Math.cos(ang);
+  const valley = (v) => r - Math.sqrt(Math.max(0, r * r - v * v));
+  const crest = (s) => depth - r + Math.sqrt(Math.max(0, r * r - s * s));
+  const y = (x) => {
+    const w = ((x % pitch) + pitch) % pitch, v = Math.min(w, pitch - w); // distance to nearest valley
+    if (v <= a) return valley(v);
+    if (v >= dx - a) return crest(dx - v);
+    return valley(a) + ((v - a) / (dx - 2 * a)) * (crest(a) - valley(a));
+  };
+  const n = Math.ceil((width / pitch) * 48);
+  return Array.from({ length: n + 1 }, (_, i) => [(i / n) * width, y((i / n) * width)]);
 }
 
 // --- procedural products ----------------------------------------------------
@@ -244,12 +256,13 @@ function multiwall() {
 
 // CMF sheet: Agrilite MR9 (white PVC, 0.89mm), KLAR TK6S (white PVC, black core, 2mm), AmeriLite CS Pro (clear PC, 0.8mm).
 // Thickness from the sheet, x1.75 so it reads at carousel size. Profiles: MR9 from Agrilite MR9-X1106.pdf,
-// TK6S from TK6S.dwg (176mm ribs, 42.5mm tall, 25mm crest, 116mm valley). CS Pro has no drawing yet:
-// stand-in APC P2053 Sinus 2.67
+// TK6S from TK6S.dwg (176mm ribs, 42.5mm tall, 25mm crest, 116mm valley), CS Pro from the "sine wave"
+// P2053 Sinus 2.67 in Amerilux Profiles-Current.pdf (67.8mm pitch, 22.2mm deep, R12.7 crests and valleys;
+// the client's pick, 2026-10-09)
 function corrugated() {
   const W = 18, L = 14, EX = 1.75;
   const tk6s = trapezoidLine(W, 176 * MM, 42.5 * MM, 25 * MM, 116 * MM);
-  const csPro = sineLine(W, 67.8 * MM, 22.2 * MM);
+  const csPro = arcWaveLine(W, 67.8 * MM, 22.2 * MM, 12.7 * MM);
   const sheet = (pts, t, mat) => {
     const edge = extrude(sheetFromLine(pts, t), L);
     return mesh(toCreasedNormals(edge.clone(), 0.5), mat, edge);
