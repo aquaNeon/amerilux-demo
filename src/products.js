@@ -11,15 +11,21 @@ const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const MM = 1 / 25.4;
 
 // Tints for the active state. Inactive state is the luminance of these (Figma: mix-blend-luminosity).
-// Invented — no colour specs in the client files yet.
+// Hex values from the client's CMF sheet ("AmeriLux – 3D Render Material Specs", 2026-10-09) where it gives
+// one; clear / white products are nudged off pure white so the illustrated look keeps some shading.
 export const TINT = {
   clear: 0xa8d8cf,
-  bronze: 0xb99d7f,
+  flat: 0xc4e0dc, // clear flat sheet / cover, 98% light transmission
+  bronze: 0x8a7460,
   opal: 0xe4e6e2,
   profile: 0xcfe3de,
-  cladding: 0xdcdad4,
-  deck: 0x8f7a68,
-  well: 0xc4c8cb,
+  pvc: 0xe8e9e6, // Agrilite MR9 Ultra White
+  klar: 0xf5f5f2, // KLAR skin
+  core: 0x202020, // KLAR co-extruded thermoacoustic core
+  hdpe: 0x151515,
+  cladding: 0xefefef,
+  deck: 0xb7b7b7, // Driftwood / Boardwalk Gray
+  well: 0xbcbbb5,
 };
 
 // Materials below are the illustrated (B&W) look; userData.finish names the photoreal one (FINISHES in materials.js).
@@ -27,7 +33,7 @@ export const TINT = {
 const withFinish = (m, finish, glow) => Object.assign(m.userData, { finish, glow }) && m;
 
 // Polycarbonate sheet. Clear and bronze are see-through; opal is milky and covers what's behind.
-const SEE_THROUGH = new Set(['clear', 'bronze']);
+const SEE_THROUGH = new Set(['clear', 'flat', 'bronze']);
 
 export function polyMaterial(tint, opacity = 0.55, glow) {
   const see = SEE_THROUGH.has(tint);
@@ -79,10 +85,12 @@ function shapeFrom(pts, holes = []) {
   return s;
 }
 
-// Round every corner of a closed polygon (quadratic fillet) so long edges catch a highlight like a real extrusion
-function roundPts(pts, r, seg = 4) {
+// Round every corner of a closed polygon (quadratic fillet) so long edges catch a highlight like a real extrusion.
+// Open polylines (closed = false) keep their end points.
+function roundPts(pts, r, seg = 4, closed = true) {
   const n = pts.length, out = [];
   for (let i = 0; i < n; i++) {
+    if (!closed && (i === 0 || i === n - 1)) { out.push(pts[i]); continue; }
     const p = pts[i], a = pts[(i - 1 + n) % n], b = pts[(i + 1) % n];
     const v1 = [a[0] - p[0], a[1] - p[1]], v2 = [b[0] - p[0], b[1] - p[1]], l1 = Math.hypot(...v1), l2 = Math.hypot(...v2);
     if (l1 < 1e-6 || l2 < 1e-6) { out.push(p); continue; }
@@ -109,44 +117,68 @@ function profile(pts, { holes = [], depth, r = 0, hr = 0, bevel = 0 }) {
   return { geo: toCreasedNormals(centered(soft), 0.6), edge };
 }
 
+// polyline moved d along its downward normal (so sloped webs keep their thickness)
+function offsetLine(pts, d) {
+  return pts.map((p, i) => {
+    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
+    const tx = b[0] - a[0], ty = b[1] - a[1], l = Math.hypot(tx, ty) || 1;
+    return [p[0] + (ty / l) * d, p[1] - (tx / l) * d];
+  });
+}
+
 // polyline top surface -> sheet of thickness t
 function sheetFromLine(pts, t) {
   const s = new THREE.Shape();
   pts.forEach(([x, y], i) => (i ? s.lineTo(x, y) : s.moveTo(x, y)));
-  for (let i = pts.length - 1; i >= 0; i--) s.lineTo(pts[i][0], pts[i][1] - t);
+  const bottom = offsetLine(pts, t);
+  for (let i = bottom.length - 1; i >= 0; i--) s.lineTo(...bottom[i]);
   s.closePath();
   return s;
 }
 
-// APC multiwall: `walls` skins (2 twinwall, 3 triplewall) + ribs at `pitch`.
-// Skins are translucent boxes; ribs are one merged mesh drawn as faint unlit stripes, no outlines
+// APC multiwall, cell layout from the APC section DWGs (mm): skins [centre height, thickness], ribs at
+// `pitch`, and for X-wall diagonal webs in every bay (mid-height at one rib to the outer skins at the next,
+// alternating, so neighbouring bays form diamonds). Walls are drawn at least VIS thick (real ones are
+// 0.1-0.6mm, sub-pixel at carousel size).
+// Skins are translucent boxes; ribs and webs are one merged mesh drawn as faint unlit stripes, no outlines
 // (real rib faces stack up and shade dark).
-function multiwallSheet(width, thick, pitch, walls, length, tint) {
-  const skin = 0.9 * MM;
+const VIS = { skin: 0.6, rib: 0.5 };
+function multiwallSheet(width, length, tint, { thick, pitch, skins, rib, cross }) {
   const g = new THREE.Group();
-  const skinGeo = new THREE.BoxGeometry(width, skin, length);
   const skinMat = polyMaterial(tint, 0.5, ['y', 'thin']);
-  for (let w = 0; w < walls; w++) {
-    const m = mesh(skinGeo, skinMat);
-    m.position.y = -thick / 2 + skin / 2 + (w * (thick - skin)) / (walls - 1);
+  for (const [y, t] of skins) {
+    const m = mesh(new THREE.BoxGeometry(width, Math.max(t, VIS.skin) * MM, length), skinMat);
+    m.position.y = (y - thick / 2) * MM;
     g.add(m);
   }
-  const cells = Math.floor(width / pitch);
-  const ribs = [];
+  const cells = Math.floor(width / (pitch * MM));
+  const x0 = (-cells * pitch * MM) / 2, ribs = [];
   for (let i = 0; i <= cells; i++) {
-    const r = new THREE.BoxGeometry(0.7 * MM, thick, length);
-    r.translate(-cells * pitch / 2 + i * pitch, 0, 0);
+    const r = new THREE.BoxGeometry(Math.max(rib, VIS.rib) * MM, thick * MM, length);
+    r.translate(x0 + i * pitch * MM, 0, 0);
     ribs.push(r);
+  }
+  if (cross) {
+    const inner = (thick / 2 - skins[0][1]) * MM, run = pitch * MM, len = Math.hypot(run, inner), ang = Math.atan2(inner, run);
+    for (let i = 0; i < cells; i++) {
+      const mid = i % 2 ? x0 + i * run : x0 + (i + 1) * run; // the rib holding the mid-height end
+      for (const sy of [1, -1]) {
+        const w = new THREE.BoxGeometry(len, Math.max(cross, VIS.rib) * MM, length);
+        w.rotateZ((i % 2 ? sy : -sy) * ang);
+        w.translate(mid + (i % 2 ? run / 2 : -run / 2), (sy * inner) / 2, 0);
+        ribs.push(w);
+      }
+    }
   }
   const ribMat = withFinish(new THREE.MeshBasicMaterial({ color: 0x1f2a28, transparent: true, opacity: 0.16, depthWrite: false }), `rib-${tint}`, ['x', 'thin']);
   const ribMesh = mesh(mergeGeometries(ribs), ribMat);
   ribMesh.userData.edges = 'none';
   // sketch linework: one line per rib along its top plus a tick at each cut end, and only every k-th rib
   // so lines stay >= ~0.6 in apart (dense ribs drawn as boxes moire into TV stripes)
-  const k = Math.max(1, Math.ceil(0.6 / pitch));
+  const k = Math.max(1, Math.ceil(0.6 / (pitch * MM)));
   const seg = [];
   for (let i = 0; i <= cells; i += k) {
-    const x = -cells * pitch / 2 + i * pitch, y = thick / 2, z = length / 2;
+    const x = x0 + i * pitch * MM, y = (thick / 2) * MM, z = length / 2;
     seg.push(x, y, -z, x, y, z, x, y, z, x, -y, z, x, y, -z, x, -y, -z);
   }
   ribMesh.userData.sketchLines = new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(seg, 3));
@@ -161,8 +193,25 @@ function trapezoidLine(width, pitch, depth, crest, valley) {
   for (let x = 0; x < width - 1e-6; x += pitch) {
     pts.push([x, 0], [x + valley / 2, 0], [x + valley / 2 + run, depth], [x + valley / 2 + run + crest, depth], [x + pitch - valley / 2, 0]);
   }
+  // cut the last rib at the sheet edge (it would run past and fold back, z-fighting at the end)
+  const i = pts.findIndex(([x]) => x >= width);
+  if (i < 0) return [...pts, [width, 0]];
+  const [x0, y0] = pts[i - 1], [x1, y1] = pts[i];
+  return [...pts.slice(0, i), [width, y0 + ((y1 - y0) * (width - x0)) / (x1 - x0)]];
+}
+
+// Agrilite MR9 (Vision Dominion X1106, inches): major ribs at 9" (1.806" base, 0.318" crest, 0.785" tall)
+// with two minor stiffeners per bay (1.35" base, 0.694" top, 0.114" tall), corners filleted
+function mr9Line(width) {
+  const bump = (c, base, top, h) => [[c - base / 2, 0], [c - top / 2, h], [c + top / 2, h], [c + base / 2, 0]];
+  const pts = [[0, 0]];
+  for (let c = 1.5; c < width; c += 9) {
+    for (const [cx, rib] of [[c, [1.806, 0.318, 0.785]], [c + 3, [1.35, 0.694, 0.114]], [c + 6, [1.35, 0.694, 0.114]]]) {
+      if (cx + rib[0] / 2 < width) pts.push(...bump(cx, ...rib));
+    }
+  }
   pts.push([width, 0]);
-  return pts;
+  return roundPts(pts, 0.1, 4, false);
 }
 
 function sineLine(width, pitch, depth) {
@@ -175,45 +224,74 @@ function sineLine(width, pitch, depth) {
 
 // --- procedural products ----------------------------------------------------
 
-// APC "Amerilux Profiles": 16mm triplewall (20mm cells), 10mm twinwall, 6mm twinwall
+// AmeriLite MW Pro (CMF sheet): 25mm 5 X-wall bronze, 16mm triplewall opal, 8mm twinwall clear.
+// Cells from the APC DWGs (8mm Twinwall / 16mm Triplewall / 25mm X wall APC.dwg)
 function multiwall() {
   const W = 18, L = 14;
   const specs = [
-    { t: 6, p: 6, walls: 2, c: 'bronze' },
-    { t: 10, p: 10, walls: 2, c: 'opal' },
-    { t: 16, p: 20, walls: 3, c: 'clear' },
+    { c: 'bronze', thick: 25, pitch: 10, rib: 0.3, cross: 0.15, skins: [[0.5, 1], [12.5, 0.1], [24.5, 1]] },
+    { c: 'opal', thick: 16, pitch: 20, rib: 0.5, skins: [[0.3, 0.6], [8, 0.2], [15.7, 0.6]] },
+    { c: 'clear', thick: 8, pitch: 10, rib: 0.4, skins: [[0.2, 0.4], [7.8, 0.4]] },
   ];
   let y = 0;
   return specs.map((sp, i) => {
-    const g = multiwallSheet(W, sp.t * MM, sp.p * MM, sp.walls, L, sp.c);
-    g.position.set((i - 1) * 0.6, y + (sp.t * MM) / 2, (i - 1) * -0.6);
-    y += sp.t * MM + 0.02;
+    const g = multiwallSheet(W, L, sp.c, sp);
+    g.position.set((i - 1) * 0.6, y + (sp.thick * MM) / 2, (i - 1) * -0.6);
+    y += sp.thick * MM + 0.02;
     return { object: g, explode: V((i - 1) * 1.5, (i - 1) * 6, 0) };
   });
 }
 
-// APC: P2034 Greca 76 x 13.5, P2053 Sinus 2.67 (67.8 / 22.2), P2069 PBU 36 x 3/4
+// CMF sheet: Agrilite MR9 (white PVC, 0.89mm), KLAR TK6S (white PVC, black core, 2mm), AmeriLite CS Pro (clear PC, 0.8mm).
+// Thickness from the sheet, x1.75 so it reads at carousel size. Profiles: MR9 from Agrilite MR9-X1106.pdf,
+// TK6S from TK6S.dwg (176mm ribs, 42.5mm tall, 25mm crest, 116mm valley). CS Pro has no drawing yet:
+// stand-in APC P2053 Sinus 2.67
 function corrugated() {
-  const W = 18, L = 14, t = 1.4 * MM;
-  const lines = [
-    { pts: trapezoidLine(W, 304.8 * MM, 19.05 * MM, 25.4 * MM, 200 * MM), c: 'bronze' },
-    { pts: sineLine(W, 67.8 * MM, 22.2 * MM), c: 'clear' },
-    { pts: trapezoidLine(W, 76 * MM, 13.5 * MM, 25 * MM, 25 * MM), c: 'opal' },
-  ];
-  return lines.map(({ pts, c }, i) => {
+  const W = 18, L = 14, EX = 1.75;
+  const tk6s = trapezoidLine(W, 176 * MM, 42.5 * MM, 25 * MM, 116 * MM);
+  const csPro = sineLine(W, 67.8 * MM, 22.2 * MM);
+  const sheet = (pts, t, mat) => {
     const edge = extrude(sheetFromLine(pts, t), L);
-    const m = mesh(toCreasedNormals(edge.clone(), 0.5), polyMaterial(c, 0.62, ['z', 'caps']), edge);
-    m.position.y = (i - 1) * 0.95;
+    return mesh(toCreasedNormals(edge.clone(), 0.5), mat, edge);
+  };
+  // KLAR: white skins over a black core (thirds of the 2mm), so the core shows on the cut ends.
+  // Layers are offset along the profile normal and centred together (extrude() would centre each alone)
+  const klar = new THREE.Group(), kt = (2 * MM * EX) / 3, geos = [];
+  [['klar', 'pvc-klar'], ['core', 'pvc-core'], ['klar', 'pvc-klar']].forEach(([tint, finish], k) => {
+    const geo = new THREE.ExtrudeGeometry(sheetFromLine(offsetLine(tk6s, k * kt), kt), { depth: L, bevelEnabled: false });
+    geos.push(geo);
+    const m = klar.add(mesh(geo, solidMaterial(tint, 0.6, finish))).children[k];
+    if (k > 0) {
+      m.userData.noCast = true; // inner layers would shadow the top skin from inside (acne along the crests)
+      m.userData.edges = 'none'; // and their outlines poke through it as dots
+    }
+  });
+  const c = new THREE.Box3().setFromObject(klar).getCenter(new THREE.Vector3());
+  for (const geo of geos) geo.translate(-c.x, -c.y, -c.z);
+  for (const m of klar.children) { m.userData.edgeGeo = m.geometry; m.geometry = toCreasedNormals(m.geometry.clone(), 0.5); }
+  const layers = [
+    sheet(mr9Line(W), 0.89 * MM * EX, solidMaterial('pvc', 0.25, 'pvc-gloss')),
+    sheet(csPro, 0.8 * MM * EX, polyMaterial('clear', 0.62, ['z', 'caps'])),
+    klar,
+  ];
+  return layers.map((m, i) => {
+    m.position.y = (i - 1) * 1.1;
     return { object: m, explode: V((i - 1) * 1.5, (i - 1) * 6, 0) };
   });
 }
 
-// No drawings supplied for flat sheet — generic solid sheets
+// CMF sheet: black HDPE 0.220" (hammered), clear polycarbonate 0.093", clear acrylic 0.118".
+// No drawings (plain sheet); thickness x1.6 so it reads at carousel size
 function flatSheets() {
-  const geo = new RoundedBoxGeometry(24, 0.4, 16, 3, 0.07);
-  const edge = new THREE.BoxGeometry(24, 0.4, 16);
-  return ['opal', 'bronze', 'clear'].map((c, i) => {
-    const m = mesh(geo, polyMaterial(c, 0.6, ['y', 'thin']), edge);
+  const EX = 1.6;
+  const specs = [
+    { t: 0.22, mat: () => solidMaterial('hdpe', 0.6, 'hdpe-black') },
+    { t: 0.118, mat: () => polyMaterial('flat', 0.6, ['y', 'thin']), finish: 'acrylic-clear' },
+    { t: 0.093, mat: () => polyMaterial('flat', 0.6, ['y', 'thin']) },
+  ];
+  return specs.map(({ t, mat, finish }, i) => {
+    const h = t * EX, m = mesh(new RoundedBoxGeometry(24, h, 16, 3, Math.min(0.07, h * 0.3)), mat(), new THREE.BoxGeometry(24, h, 16));
+    if (finish) m.material.userData.finish = finish;
     m.position.set((i - 1) * 0.4, (i - 1) * 0.3, (i - 1) * -0.4);
     return { object: m, explode: V((i - 1) * 1.5, (i - 1) * 7, 0) };
   });
@@ -232,7 +310,7 @@ function decking() {
   const { outer, holes } = duxxbakSection();
   const { geo, edge } = profile(outer, { holes, depth: 26, r: 0.07, hr: 0.04, bevel: 0.02 });
   return [0, 1, 2, 3].map((i) => {
-    const b = mesh(geo, solidMaterial('deck', 0.7, 'deck'), edge); // own material per board: grain differs
+    const b = mesh(geo, solidMaterial('deck', 0.8, 'deck'), edge); // own material per board: grain differs
     b.position.x = (i - 1.5) * 6;
     return { object: b, explode: V((i - 1.5) * 2.2, (i - 1.5) * 1.6, 0) };
   });
@@ -250,9 +328,10 @@ function lapSidingSection() {
 
 function sidingCladding() {
   const { geo, edge } = profile(lapSidingSection(), { depth: 22, r: 0.03, bevel: 0.014 });
-  const mat = solidMaterial('cladding', 0.55, 'cladding');
+  const mat = solidMaterial('cladding', 0.6, 'cladding');
   return [0, 1, 2].map((i) => {
     const m = mesh(geo, mat, edge);
+    m.userData.noShadow = true; // no shadows / AO: the boards' laps read as dark smears
     m.position.set((i - 1) * 7, 0, 0);
     return { object: m, explode: V((i - 1) * 2, (i - 1) * 4, 0) };
   });
@@ -265,6 +344,16 @@ function sidingCladding() {
 // above each other: the 16" / 18" / 16" EZ Liner panels lie flat at the bottom, interlocked edge to edge
 // along Z, and the formwork wall (stackZ) stands above them; exploding lifts the formwork apart while the
 // liner stays locked together.
+// Outline crease angle for the EZ parts: their filleted corners are a few facets each just over the
+// default 28 deg, which drew as bundles of near-parallel lines that shimmer while the product sways
+const FILLET_EDGE = 50;
+// EZ Liner is hollow: its inner webs' edges run just under the thin top skin and leak through cracks
+// in the imported mesh as dotted rows. Keep only edges on the outer skins (y) and at the cut ends (z).
+const shellEdges = (bb, eps = 0.01) => {
+  const outer = (v) => v.y < bb.min.y + eps || v.y > bb.max.y - eps;
+  const end = (v) => v.z < bb.min.z + eps || v.z > bb.max.z - eps;
+  return (a, b) => (outer(a) && outer(b)) || (end(a) && end(b));
+};
 const LINER_L = 14; // shown panel length, inches (exported liner section is 6" long, stretched)
 function panelSystems(parts) {
   const layers = formwork(parts);
@@ -277,6 +366,8 @@ function panelSystems(parts) {
   let z = -total / 2;
   names.forEach((n, i) => {
     const m = mesh(parts[n], solidMaterial('profile', 0.35, 'pvc-white'));
+    m.userData.edgeAngle = FILLET_EDGE;
+    m.userData.edgeKeep = shellEdges(parts[n].boundingBox);
     m.quaternion.copy(along);
     m.scale.z = LINER_L / 6;
     m.position.set(0, bottom - 3, z + cover[n] / 2); // cover-width pitch: tongues interlock
@@ -293,6 +384,7 @@ function stackZ(parts, names, gap, mat) {
   let z = -total / 2;
   return names.map((n, i) => {
     const m = mesh(parts[n], mat());
+    m.userData.edgeAngle = FILLET_EDGE;
     m.position.z = z + sizes[i].z / 2;
     z += sizes[i].z;
     const k = i - (names.length - 1) / 2;
@@ -304,35 +396,25 @@ function formwork(parts) {
   return stackZ(parts, ['8-in-fem', '8-panel', '4.5-in-spacer', '8-panel', '8-in-male'], 7, () => solidMaterial('profile', 0.38, 'pvc-form'));
 }
 
-// Specialty (client meeting 2026-10-02): window wells. PLACEHOLDER, no drawings yet: a semicircular
-// corrugated steel well (40" wide, 20" projection, 30" tall) with bolt flanges, and a clear
-// polycarbonate dome cover that lifts off when exploded. The foundation wall would sit at z = 0.
-function windowWell() {
-  const R = 20, H = 30, pitch = 3, amp = 0.45;
-  const prof = [];
-  for (let i = 0; i <= H * 4; i++) {
-    const y = i / 4;
-    prof.push(new THREE.Vector2(R + amp * Math.sin((y / pitch) * Math.PI * 2), y - H / 2));
-  }
+// Specialty: window wells, from the manufacturer's STEP files (2026-10-09; tessellated by FreeCAD,
+// see PLACEHOLDERS.md): egress well 5036 (50" x 36", 58.6" deep) and Premium Square Flat cover 5237,
+// a clear polycarbonate panel with a mounting rail + knobs along the wall edge.
+// Both files share one frame: foundation wall at z = 0, well projecting to -z, rim at y = 0. Turned
+// half a turn so the well projects toward the viewer like the other products.
+function windowWell(parts) {
+  const turn = (m) => { m.rotation.y = Math.PI; return m; };
   const wallMat = solidMaterial('well', 0.4, 'steel-galv');
   wallMat.side = THREE.DoubleSide;
-  const well = new THREE.Group();
-  well.add(mesh(new THREE.LatheGeometry(prof, 48, -Math.PI / 2, Math.PI), wallMat));
-  for (const sx of [-1, 1]) {
-    const flange = mesh(new THREE.BoxGeometry(3.5, H, 0.12), wallMat);
-    flange.position.set(sx * (R + 1.75), 0, 0.06);
-    well.add(flange);
-  }
-  // dome: a quarter sphere (half of the upper hemisphere) flattened, closed against the wall by a half disc
-  const r = R + 2, flat = 0.38;
-  const dome = new THREE.SphereGeometry(r, 48, 14, 0, Math.PI, 0, Math.PI / 2);
-  const back = new THREE.CircleGeometry(r, 48, 0, Math.PI);
-  const coverGeo = mergeGeometries([dome, back]).scale(1, flat, 1);
-  const cover = mesh(coverGeo, polyMaterial('clear', 0.6));
-  cover.position.y = H / 2 + 0.3;
+  const well = turn(mesh(parts['egress-well'], wallMat));
+  well.userData.edgeAngle = 40; // rounded corrugations: at 28 deg their outlines break into dashes
+  const cover = turn(new THREE.Group());
+  // The cover's rounded ribs sit near the 28 deg crease angle, so their outlines follow the tessellation
+  // and break into dashes / zigzags: outline only the rim (60 deg), and none in photoreal
+  cover.add(Object.assign(mesh(parts['well-cover'], polyMaterial('flat', 0.6, ['y', 'thin'])), { userData: { realEdges: false, edgeAngle: 60 } }));
+  cover.add(mesh(parts['well-cover-rail'], solidMaterial('well', 0.4, 'steel-galv')));
   return [
     { object: well, explode: V(0, 0, 0) },
-    { object: cover, explode: V(0, 12, 2) },
+    { object: cover, explode: V(0, 16, 3) },
   ];
 }
 
@@ -344,5 +426,5 @@ export const PRODUCTS = {
   'panel-systems': { build: panelSystems, yaw: 0.72, parts: ['16-in-inner', '18-in-inner', '8-in-fem', '8-panel', '4.5-in-spacer', '8-in-male'] },
   'decking-railing': { build: decking, yaw: -0.62 },
   'siding-cladding': { build: sidingCladding, yaw: -0.62 },
-  'specialty-products': { build: windowWell, yaw: 0.55 },
+  'specialty-products': { build: windowWell, yaw: 0.55, parts: ['egress-well', 'well-cover', 'well-cover-rail'] },
 };

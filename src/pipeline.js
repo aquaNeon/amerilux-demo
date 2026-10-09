@@ -1,11 +1,12 @@
 // Photoreal render path, per frame:
 //   1. scene -> main target
-//   2. ambient occlusion from the main depth, half res, depth-aware blur
+//   2. ambient occlusion from a half-res depth pass, depth-aware blur
 //   3. bloom from the brightest highlights, half res
 //   4. tone map, AO, bloom, grain, composite over the flat page colour
-// Main target is half-float with 32-bit depth and no MSAA: multisampled depth lets the thin skins of
-// hollow profiles (EZ Liner) show their inner webs as a dot pattern. Anti-aliasing comes from 2x
-// supersampling on 1x screens instead (retina screens are already 2x).
+// Main target is half-float with 4x MSAA. AO reads depth from its own half-res, non-multisampled depth
+// pass: multisampled depth lets the thin skins of hollow profiles (EZ Liner) show their inner webs as a
+// dot pattern. 1x screens also supersample 1.5x. (FXAA was tried on the final image: it visibly softens
+// everything, so it's out.)
 import * as THREE from 'three';
 
 const QUAD_VS = 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }';
@@ -121,8 +122,11 @@ void main() {
 export class StudioPipeline {
   constructor(renderer) {
     this.r = renderer;
+    this.ss = 1.5; // supersampling on <2x screens (on top of MSAA); Stage.adapt() drops it to 1 on slow GPUs
     const hf = { type: THREE.HalfFloatType };
-    this.main = new THREE.WebGLRenderTarget(1, 1, { ...hf, depthTexture: new THREE.DepthTexture(1, 1, THREE.FloatType) });
+    this.main = new THREE.WebGLRenderTarget(1, 1, { ...hf, samples: 4 });
+    this.depth = new THREE.WebGLRenderTarget(1, 1, { depthTexture: new THREE.DepthTexture(1, 1, THREE.FloatType) });
+    this.depthMat = new THREE.MeshBasicMaterial({ colorWrite: false, side: THREE.DoubleSide });
     const half = () => new THREE.WebGLRenderTarget(1, 1, { ...hf, depthBuffer: false });
     this.a1 = half(); this.a2 = half(); // ambient occlusion
     this.b1 = half(); this.b2 = half(); // bloom
@@ -136,7 +140,7 @@ export class StudioPipeline {
     this.quad.frustumCulled = false;
     this.scene.add(this.quad);
     const mat = (fragmentShader, uniforms) => new THREE.ShaderMaterial({ vertexShader: QUAD_VS, fragmentShader, uniforms, depthTest: false, depthWrite: false, toneMapped: false });
-    const depth = this.main.depthTexture;
+    const depth = this.depth.depthTexture;
     this.blur = mat(BLUR_FS, { t: { value: null }, dir: { value: new THREE.Vector2() } });
     this.bright = mat(BRIGHT_FS, { t: { value: this.main.texture } });
     this.ao = mat(AO_FS, {
@@ -153,11 +157,12 @@ export class StudioPipeline {
 
   // w, h: drawing-buffer pixels
   setSize(w, h) {
-    const ss = devicePixelRatio >= 2 ? 1 : 2;
-    this.main.setSize(w * ss, h * ss);
-    this.hw = Math.max(1, (w * ss) >> 1);
-    this.hh = Math.max(1, (h * ss) >> 1);
-    for (const t of [this.a1, this.a2, this.b1, this.b2]) t.setSize(this.hw, this.hh);
+    this.size = [w, h];
+    const ss = devicePixelRatio >= 2 ? 1 : this.ss;
+    this.main.setSize(Math.round(w * ss), Math.round(h * ss));
+    this.hw = Math.max(1, Math.round(w * ss) >> 1);
+    this.hh = Math.max(1, Math.round(h * ss) >> 1);
+    for (const t of [this.depth, this.a1, this.a2, this.b1, this.b2]) t.setSize(this.hw, this.hh);
     this.ao.uniforms.uRes.value.set(this.hw, this.hh);
     this.fin.uniforms.uRes.value.set(w, h);
   }
@@ -187,9 +192,21 @@ export class StudioPipeline {
     r.clear();
     r.render(scene, cam);
 
-    // 2. ambient occlusion
+    // 2. ambient occlusion, from a depth-only pass of what the main pass writes depth for
     const f = this.fin.uniforms;
     if (ao > 0) {
+      const hidden = [];
+      scene.traverseVisible((o) => {
+        const m = Array.isArray(o.material) ? o.material[0] : o.material;
+        if ((m && !m.depthWrite) || o.userData.noShadow) { o.visible = false; hidden.push(o); }
+      });
+      scene.overrideMaterial = this.depthMat;
+      r.setRenderTarget(this.depth);
+      r.clear();
+      r.render(scene, cam);
+      scene.overrideMaterial = null;
+      for (const o of hidden) o.visible = true;
+
       const u = this.ao.uniforms;
       u.uProj.value.copy(cam.projectionMatrix);
       u.uInvProj.value.copy(cam.projectionMatrixInverse);

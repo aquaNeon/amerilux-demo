@@ -10,18 +10,23 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { PRODUCTS } from './products.js';
-import { realMaterial, setTextureBase, studioEnvironment } from './materials.js';
+import { prepareMaps, realMaterial, setTextureBase, studioEnvironment } from './materials.js';
 import { StudioPipeline } from './pipeline.js';
 import { SketchPipeline } from './sketch.js';
 
-// Layout relative to the 1141px-wide left column (Figma, with the larger hero from the client's studio build)
-const DESIGN_W = 1141;
-const SLOT_X = [0, 375, 610, 845, 1080]; // distance of slot centre from active centre
-const SMALL = { w: 160, h: 104 };
-const BIG = { w: 470, h: 410 };
+// Slot layouts, in px of the Figma frame they were measured on (scaled with the stage width).
+//   hero   home "Our products": 1141px-wide left column, larger hero from the client's studio build
+//   strip  product page "Other products to consider": 1384px-wide full-width stage
+// slots: distance of each slot centre from the active centre. small / big: fit box of side / active items
+export const LAYOUTS = {
+  hero: { designW: 1141, slots: [0, 375, 610, 845, 1080], small: { w: 160, h: 104 }, big: { w: 470, h: 410 }, centerX: 0.505, centerY: 0.67 },
+  strip: { designW: 1384, slots: [0, 302, 528, 754, 980], small: { w: 174, h: 114 }, big: { w: 330, h: 320 }, centerX: 0.5, centerY: 0.47 },
+};
 const ELEVATION = THREE.MathUtils.degToRad(34);
 const LENS_FOV = 18; // photoreal camera, vertical degrees
 const KEY_DIR = new THREE.Vector3(-0.42, 0.82, 0.38).normalize(); // photoreal key light
+const STAGGER = 0.14; // s between product entrances, so late builds arrive one by one
+const APPEAR_K = 26, APPEAR_C = 2 * Math.sqrt(APPEAR_K); // entrance spring: critically damped, no overshoot
 
 const clamp01 = (v) => Math.min(1, Math.max(0, v));
 const ease = (t) => t * t * (3 - 2 * t);
@@ -31,6 +36,8 @@ const EDGE_ON = new THREE.Color(0x1f2a28);
 const EDGE_OFF = new THREE.Color(0x6b6b6b);
 const lum = (c) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
 const grey = (c) => { const l = lum(c); return new THREE.Color(l, l, l); };
+// next idle moment (one frame at most), so background work never stacks into one long task
+const idle = () => new Promise((r) => (window.requestIdleCallback ? requestIdleCallback(() => r(), { timeout: 200 }) : setTimeout(r, 16)));
 
 // meshopt output is quantized (int16 positions, dequant scale on the node):
 // copy to float attributes and bake the node transform so parts are in inches
@@ -53,6 +60,29 @@ function bakeGeometry(mesh) {
   if (!geo.getAttribute('normal')) geo.computeVertexNormals();
   geo.computeBoundingBox();
   geo.userData.quantized = true;
+  return geo;
+}
+
+// Leaves out outline segments shorter than `min` inches: crumbs from tiny faces of extruded profiles,
+// drawn as stray dots across flat faces.
+function dropShort(geo, min = 0.03) {
+  const p = geo.getAttribute('position').array, out = [];
+  for (let i = 0; i < p.length; i += 6) {
+    if (Math.hypot(p[i + 3] - p[i], p[i + 4] - p[i + 1], p[i + 5] - p[i + 2]) >= min) for (let k = 0; k < 6; k++) out.push(p[i + k]);
+  }
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(out, 3));
+  return geo;
+}
+
+// Keeps the outline segments for which keep(a, b) is true (a, b: endpoints, geometry space)
+function keepEdges(geo, keep) {
+  const p = geo.getAttribute('position').array, out = [];
+  const a = new THREE.Vector3(), b = new THREE.Vector3();
+  for (let i = 0; i < p.length; i += 6) {
+    a.fromArray(p, i); b.fromArray(p, i + 3);
+    if (keep(a, b)) for (let k = 0; k < 6; k++) out.push(p[i + k]);
+  }
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(out, 3));
   return geo;
 }
 
@@ -116,27 +146,32 @@ function setWeight(renderer, scene, camera, geometry, material) {
   material.uniformsNeedUpdate = true;
 }
 
-function slotX(p) {
+function slotX(slots, p) {
   const a = Math.abs(p);
-  const i = Math.min(Math.floor(a), SLOT_X.length - 2);
-  const x = THREE.MathUtils.lerp(SLOT_X[i], SLOT_X[i + 1], a - i);
+  const i = Math.min(Math.floor(a), slots.length - 2);
+  const x = THREE.MathUtils.lerp(slots[i], slots[i + 1], a - i);
   return Math.sign(p) * x;
 }
 
 export class Stage {
-  constructor(el, { slugs, modelBase, textureBase, centerX = 0.505, centerY = 0.67, onChange }) {
+  constructor(el, { slugs, modelBase, textureBase, layout = 'hero', centerX, centerY, onChange, onBuilt }) {
     this.el = el;
     this.slugs = slugs;
     this.modelBase = modelBase;
     if (textureBase) setTextureBase(textureBase);
-    this.centerX = centerX;
-    this.centerY = centerY;
+    this.layout = LAYOUTS[layout] || LAYOUTS.hero;
+    this.centerX = centerX ?? this.layout.centerX;
+    this.centerY = centerY ?? this.layout.centerY;
     this.onChange = onChange;
+    this.onBuilt = onBuilt;
     this.style = 'color';
     this.reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     const r = this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
     r.setPixelRatio(Math.min(devicePixelRatio, 2));
+    // reading shader logs forces the driver to finish compiling on the spot (seconds of main-thread
+    // stalls at startup); only worth it while developing
+    r.debug.checkShaderErrors = import.meta.env.DEV;
     r.toneMapping = THREE.NeutralToneMapping; // mono only: render targets skip it, the pipeline tones photoreal
     r.toneMappingExposure = 0.95;
     r.shadowMap.enabled = true;
@@ -146,13 +181,12 @@ export class Stage {
     el.appendChild(this.canvas);
 
     this.scene = new THREE.Scene();
-    const pmrem = new THREE.PMREMGenerator(r);
-    this.envIllus = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-    pmrem.dispose();
-    this.envReal = studioEnvironment(r);
+    // environment maps are built on first use of their style (each is a PMREM render)
+    this.pmrem = new THREE.PMREMGenerator(r);
     this.key = new THREE.DirectionalLight(0xffffff, 2.2);
     this.key.shadow.mapSize.set(2048, 2048);
     this.key.shadow.bias = -0.0003;
+    this.key.shadow.radius = 3; // PCF softness: hard 1-texel edges stair-step and crawl as the product sways
     this.hemi = new THREE.HemisphereLight(0xffffff, 0x9aa3a2, 0.5);
     this.scene.add(this.key, this.key.target, this.hemi);
 
@@ -187,20 +221,20 @@ export class Stage {
     this.bindPointer();
     this.bindVisibility();
     this.applyStyle();
-    this.ready = this.loadParts().then(() => {
-      this.items.forEach((it) => this.buildItem(it));
-      this.applyStyle();
-      this.precompile();
-    });
+    this.ready = this.load(); // resolves once the first (active) product is on screen
+    this.loaded = this.ready.then(() => this.rest);
     r.setAnimationLoop(() => this.tick());
   }
 
   get camera() { return this.style === 'color' ? this.persp : this.ortho; }
 
+  get envReal() { return (this._envReal ??= studioEnvironment(this.pmrem)); }
+  get envIllus() { return (this._envIllus ??= this.pmrem.fromScene(new RoomEnvironment(), 0.04).texture); }
+
   // --- items ----------------------------------------------------------------
 
   createItem(slug, index) {
-    const def = PRODUCTS[slug] || PRODUCTS['flat-sheets'];
+    const def = PRODUCTS[slug];
     const root = new THREE.Group(); // slot position + scale
     const tilt = new THREE.Group(); // yaw + motion
     const content = new THREE.Group(); // centering
@@ -208,20 +242,59 @@ export class Stage {
     tilt.add(content);
     root.visible = false;
     this.scene.add(root);
-    return { slug, index, def, root, tilt, content, layers: [], materials: [], reals: [], meshes: [], edges: [], built: false, hover: 0, pop: 0 };
+    return { slug, index, def, root, tilt, content, layers: [], materials: [], reals: [], meshes: [], edges: [], built: false, hover: 0, appear: 0, appearVel: 0 };
   }
 
-  async loadParts() {
-    const names = new Set(Object.values(PRODUCTS).flatMap((p) => p.parts || []));
+  // Active product first: fetch its GLBs, build it, compile its shaders off the main thread
+  // (KHR_parallel_shader_compile), then show it. Every other product follows in idle time, nearest
+  // first, one per idle slot, so startup never blocks on the whole catalogue.
+  async load() {
     const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
     this.parts = {};
-    await Promise.all([...names].map(async (n) => {
-      const gltf = await loader.loadAsync(`${this.modelBase}${n}.glb`);
+    const pending = {};
+    const part = (n) => (pending[n] ??= loader.loadAsync(`${this.modelBase}${n}.glb`).then((gltf) => {
       let mesh;
       gltf.scene.updateMatrixWorld(true);
       gltf.scene.traverse((o) => { if (o.isMesh && !mesh) mesh = o; });
       this.parts[n] = bakeGeometry(mesh);
     }));
+    const n = this.items.length;
+    const order = [...this.items].sort((a, b) => Math.abs(wrap(a.index - this.target, n)) - Math.abs(wrap(b.index - this.target, n)));
+    const maps = prepareMaps(); // procedural textures, in a worker meanwhile
+    const show = async (it, first) => {
+      await Promise.all([...(it.def.parts || []).map(part), first || maps]);
+      this.buildItem(it);
+      this.styleItem(it);
+      await this.compileItem(it);
+      it.built = true;
+      this.onBuilt?.(it.index);
+    };
+    await show(order[0], true); // never waits on the worker (builds a missing map inline instead)
+    this.rest = (async () => {
+      for (const it of order.slice(1)) for (const p of it.def.parts || []) part(p); // fetch the rest in parallel
+      for (const it of order.slice(1)) { await idle(); await show(it); }
+      await idle();
+      this.precompile();
+    })();
+  }
+
+  // compile one product's programs for the current style without stalling the frame
+  compileItem(it) {
+    it.root.visible = true;
+    const done = this.compile(it.root);
+    it.root.visible = false;
+    return done;
+  }
+
+  // compileAsync against the target the style really draws into: programs bake in the target's
+  // colour space and tone mapping (photoreal draws to the linear HDR target, no tone mapping), and a
+  // program compiled for the screen would be thrown away and recompiled on first draw
+  compile(object) {
+    const r = this.renderer, prev = r.getRenderTarget();
+    r.setRenderTarget(this.style === 'color' ? this.pipe.main : null);
+    const done = r.compileAsync(object, this.camera, this.scene).catch(() => {});
+    r.setRenderTarget(prev);
+    return done;
   }
 
   buildItem(it) {
@@ -261,14 +334,18 @@ export class Stage {
       const src = o.userData.edgeGeo || o.geometry;
       let lineGeo = o.userData.edges === 'none' && o.userData.sketchLines;
       if (!lineGeo) {
-        if (!edgeCache.has(src)) edgeCache.set(src, src.userData.quantized ? cleanEdges(src) : new THREE.EdgesGeometry(src, 28));
+        const angle = o.userData.edgeAngle ?? 28;
+        if (!edgeCache.has(src)) {
+          const g = src.userData.quantized ? cleanEdges(src, angle) : dropShort(new THREE.EdgesGeometry(src, angle));
+          edgeCache.set(src, o.userData.edgeKeep ? keepEdges(g, o.userData.edgeKeep) : g);
+        }
         lineGeo = edgeCache.get(src);
       }
       const line = new THREE.LineSegments(lineGeo, it.edgeMat);
       line.raycast = () => {};
       line.onBeforeRender = setWeight;
       line.layers.enable(1); // sketch outline pass
-      line.userData.real = edgeOf.get(real)?.m;
+      line.userData.real = o.userData.realEdges === false ? null : edgeOf.get(real)?.m;
       line.userData.item = it;
       line.userData.sketchOnly = o.userData.edges === 'none'; // e.g. multiwall ribs: drawn only in the sketch
       // lighter pencil for inner ribs and see-through sheets
@@ -286,8 +363,6 @@ export class Stage {
     });
     this.measure(it);
     it.tilt.rotation.y = it.def.yaw;
-    it.built = true;
-    it.root.visible = true;
   }
 
   // --- style ----------------------------------------------------------------
@@ -299,7 +374,6 @@ export class Stage {
 
   applyStyle() {
     const real = this.style === 'color';
-    const sketch = this.style === 'sketch';
     this.scene.environment = real ? this.envReal : this.envIllus;
     this.scene.environmentIntensity = real ? 1 : 0.55;
     this.key.intensity = real ? 2.3 : 2.2;
@@ -307,15 +381,21 @@ export class Stage {
     this.key.castShadow = real;
     if (!real) { this.key.position.set(-300, 600, 400); this.key.target.position.set(0, 0, 0); }
     this.hemi.visible = !real;
-    for (const it of this.items) {
-      for (const o of it.meshes) {
-        o.material = real ? o.userData.real : o.userData.illus;
-        o.castShadow = o.receiveShadow = real && !o.userData.see;
-      }
-      for (const l of it.edges) {
-        l.material = real ? l.userData.real || it.edgeMat : it.edgeMat;
-        l.visible = !sketch && !l.userData.sketchOnly && (!real || !!l.userData.real);
-      }
+    for (const it of this.items) this.styleItem(it);
+  }
+
+  styleItem(it) {
+    const real = this.style === 'color';
+    const sketch = this.style === 'sketch';
+    for (const o of it.meshes) {
+      o.material = real ? o.userData.real : o.userData.illus;
+      o.castShadow = o.receiveShadow = real && !o.userData.see;
+      if (o.userData.noCast) o.castShadow = false;
+      if (o.userData.noShadow) o.castShadow = o.receiveShadow = false;
+    }
+    for (const l of it.edges) {
+      l.material = real ? l.userData.real || it.edgeMat : it.edgeMat;
+      l.visible = !sketch && !l.userData.sketchOnly && (!real || !!l.userData.real);
     }
   }
 
@@ -324,7 +404,10 @@ export class Stage {
     const style = this.style;
     this.style = style === 'color' ? 'mono' : 'color';
     this.applyStyle();
-    this.renderer.compileAsync(this.scene, this.camera).catch(() => {});
+    const shown = this.items.map((it) => it.root.visible);
+    this.items.forEach((it) => { it.root.visible = it.built; }); // compile skips hidden objects
+    this.compile(this.scene);
+    this.items.forEach((it, i) => { it.root.visible = shown[i]; });
     this.style = style;
     this.applyStyle();
   }
@@ -397,7 +480,7 @@ export class Stage {
     this.w = w;
     this.h = h;
     this.renderer.setSize(w, h, false);
-    this.scale = THREE.MathUtils.clamp(w / DESIGN_W, 0.45, 1.5);
+    this.scale = THREE.MathUtils.clamp(w / this.layout.designW, 0.45, 1.5);
     const cx = w * this.centerX;
     const cy = h * this.centerY;
     Object.assign(this.ortho, { left: -cx, right: w - cx, top: cy, bottom: cy - h });
@@ -444,7 +527,7 @@ export class Stage {
           c.classList.add('is-dragging');
         }
         if (drag.moved) {
-          this.current = this.target = drag.start - dx / (SLOT_X[1] * this.scale);
+          this.current = this.target = drag.start - dx / (this.layout.slots[1] * this.scale);
           return;
         }
       }
@@ -476,15 +559,20 @@ export class Stage {
 
   // --- frame ------------------------------------------------------------------
 
-  // drop to 1x pixel ratio if frames run long (photoreal on weak GPUs)
+  // if frames run long (photoreal on weak GPUs): first drop supersampling, then the pixel ratio
+  // (a 1x canvas on a 1.25-1.5x screen is upscaled by the browser: soft and jagged)
   adapt(raw) {
     this.ema = this.ema == null ? 0.016 : this.ema * 0.95 + Math.min(raw, 0.2) * 0.05;
-    if (++this.frames > 90 && this.ema > 0.034 && this.renderer.getPixelRatio() > 1) {
+    if (++this.frames <= 90 || this.ema <= 0.034) return;
+    if (this.pipe.ss > 1 && this.style === 'color') {
+      this.pipe.ss = 1;
+      this.pipe.setSize(...this.pipe.size);
+    } else if (this.renderer.getPixelRatio() > 1) {
       this.renderer.setPixelRatio(1);
       this.resize();
-      this.ema = 0.016;
-      this.frames = 0;
-    }
+    } else return;
+    this.ema = 0.016;
+    this.frames = 0;
   }
 
   tick() {
@@ -515,7 +603,14 @@ export class Stage {
       const p = wrap(it.index - this.current, n);
       const a = ease(clamp01(1 - Math.abs(p)));
       it.hover += ((this.hovered === it && a < 0.5 ? 1 : 0) - it.hover) * (1 - Math.exp(-dt * 5));
-      it.pop += (1 - it.pop) * (1 - Math.exp(-dt * 4));
+      // entrance: grow in from nothing with a slight rise, each product STAGGER after the previous one
+      if (it.revealAt == null) this.lastReveal = it.revealAt = Math.max(t, (this.lastReveal ?? -Infinity) + STAGGER);
+      if (this.reduced) it.appear = 1;
+      else if (t >= it.revealAt) {
+        it.appearVel += ((1 - it.appear) * APPEAR_K - it.appearVel * APPEAR_C) * dt;
+        it.appear += it.appearVel * dt;
+      }
+      const grow = clamp01(it.appear);
 
       // explode + recentre
       const e = ease(clamp01((a - 0.25) / 0.75));
@@ -524,12 +619,13 @@ export class Stage {
 
       // fit into slot
       const [f0, f1] = it.fit;
-      const s0 = Math.min(SMALL.w / f0.w, SMALL.h / f0.h);
-      const s1 = Math.min(BIG.w / f1.w, BIG.h / f1.h);
-      const s = THREE.MathUtils.lerp(s0, s1, a) * this.scale * (0.85 + 0.15 * it.pop) * (1 + it.hover * 0.04);
+      const { small, big, slots } = this.layout;
+      const s0 = Math.min(small.w / f0.w, small.h / f0.h);
+      const s1 = Math.min(big.w / f1.w, big.h / f1.h);
+      const s = THREE.MathUtils.lerp(s0, s1, a) * this.scale * grow * (1 + it.hover * 0.04);
       it.root.scale.setScalar(s);
-      it.root.position.set(slotX(p) * this.scale, it.hover * 6, 0);
-      it.root.visible = Math.abs(p) < 3.6;
+      it.root.position.set(slotX(slots, p) * this.scale, it.hover * 6 - (1 - grow) * 24 * this.scale, 0);
+      it.root.visible = Math.abs(p) < 3.6 && grow > 0.002;
       it.a = a;
 
       // motion: gentle idle sway on active, pointer parallax
@@ -560,7 +656,8 @@ export class Stage {
   }
 
   // --- thumbnails -------------------------------------------------------------
-  // Renders one item in its active look to a data URL (used when a thumb has no src).
+  // Renders one item in its active look; resolves to a data URL (used when a thumb has no src).
+  // The pixel readback is async so the GPU never stalls the frame.
 
   snapshot(index, size = 204) {
     const it = this.items[index];
@@ -613,8 +710,6 @@ export class Stage {
       r.render(this.scene, cam);
       this.scene.background = bg;
     }
-    const px = new Uint8Array(size * size * 4);
-    r.readRenderTargetPixels(rt, 0, 0, size, size, px);
     r.setRenderTarget(null);
 
     this.items.forEach((i, k) => { i.root.visible = saved[k]; });
@@ -622,14 +717,17 @@ export class Stage {
     it.root.scale.setScalar(pose.s);
     it.tilt.rotation.set(pose.rx, pose.ry, 0);
     it.tilt.position.y = pose.ty;
-    rt.dispose();
 
-    const cv = document.createElement('canvas');
-    cv.width = cv.height = size;
-    const ctx = cv.getContext('2d');
-    const img = ctx.createImageData(size, size);
-    for (let y = 0; y < size; y++) img.data.set(px.subarray((size - 1 - y) * size * 4, (size - y) * size * 4), y * size * 4);
-    ctx.putImageData(img, 0, 0);
-    return cv.toDataURL('image/webp', 0.9);
+    const px = new Uint8Array(size * size * 4);
+    return r.readRenderTargetPixelsAsync(rt, 0, 0, size, size, px).then(() => {
+      rt.dispose();
+      const cv = document.createElement('canvas');
+      cv.width = cv.height = size;
+      const ctx = cv.getContext('2d');
+      const img = ctx.createImageData(size, size);
+      for (let y = 0; y < size; y++) img.data.set(px.subarray((size - 1 - y) * size * 4, (size - y) * size * 4), y * size * 4);
+      ctx.putImageData(img, 0, 0);
+      return cv.toDataURL('image/webp', 0.9);
+    });
   }
 }

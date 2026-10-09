@@ -2,35 +2,11 @@
 // Lighting and most maps are generated in code; photo textures (public/textures/) load only
 // when a finish that uses them is first built.
 import * as THREE from 'three';
+import { GENERATORS } from './maps-gen.js';
+import MapsWorker from './maps.worker.js?worker&inline';
 
-// --- procedural surface maps (tileable; 1 tile = 9 in) -------------------------------
+// --- procedural surface maps (generated in maps-gen.js) ------------------------------
 
-function rng(a) {
-  return () => {
-    a |= 0; a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-function noise1(n, seed) {
-  const r = rng(seed), v = Array.from({ length: n }, r);
-  return (x) => {
-    x = ((x % n) + n) % n;
-    const i = Math.floor(x), f = x - i, t = f * f * (3 - 2 * f);
-    return v[i] * (1 - t) + v[(i + 1) % n] * t;
-  };
-}
-function noise2(n, seed) {
-  const r = rng(seed), v = Array.from({ length: n * n }, r);
-  return (x, y) => {
-    x = ((x % n) + n) % n; y = ((y % n) + n) % n;
-    const i = Math.floor(x), j = Math.floor(y), fx = x - i, fy = y - j;
-    const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy), i1 = (i + 1) % n, j1 = (j + 1) % n;
-    const a = v[j * n + i], b = v[j * n + i1], c = v[j1 * n + i], d = v[j1 * n + i1];
-    return (a * (1 - sx) + b * sx) * (1 - sy) + (c * (1 - sx) + d * sx) * sy;
-  };
-}
 function dataTex(data, S, srgb) {
   const t = new THREE.DataTexture(data, S, S, THREE.RGBAFormat);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
@@ -42,61 +18,37 @@ function dataTex(data, S, srgb) {
   t.needsUpdate = true;
   return t;
 }
-function normalFrom(H, S, strength) {
-  const d = new Uint8Array(S * S * 4);
-  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
-    const dx = (H[y * S + ((x + 1) % S)] - H[y * S + ((x - 1 + S) % S)]) * strength;
-    const dy = (H[((y + 1) % S) * S + x] - H[((y - 1 + S) % S) * S + x]) * strength;
-    const l = Math.hypot(dx, dy, 1), o = (y * S + x) * 4;
-    d[o] = (-dx / l * 0.5 + 0.5) * 255; d[o + 1] = (-dy / l * 0.5 + 0.5) * 255; d[o + 2] = (1 / l * 0.5 + 0.5) * 255; d[o + 3] = 255;
-  }
-  return d;
-}
-const hex = (h) => [(h >> 16) & 255, (h >> 8) & 255, h & 255];
-function ramp(stops, t) {
-  t = Math.min(0.9999, Math.max(0, t)) * (stops.length - 1);
-  const i = Math.floor(t), f = t - i, a = stops[i], b = stops[i + 1];
-  return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f];
-}
 
-// Composite decking: low-contrast brushed streaks along the board (texture v = board length), sandy stipple
-function deckMaps(palette) {
-  const S = 1024, H = new Float32Array(S * S), C = new Uint8Array(S * S * 4);
-  const band = noise1(10, 11), mid = noise1(60, 12), fine = noise1(260, 13), hair = noise1(900, 14);
-  const warp = noise2(6, 15), grit = noise2(360, 16), grit2 = noise2(140, 18), mott = noise2(9, 17);
-  const pal = palette.map(hex);
-  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
-    const u = (x + (warp((x / S) * 6, (y / S) * 6) - 0.5) * 50) / S;
-    const b = band(u * 10), m = mid(u * 60), f = fine(u * 260), h = hair(u * 900);
-    const g = grit((x / S) * 360, (y / S) * 360), g2 = grit2((x / S) * 140, (y / S) * 140), mo = mott((x / S) * 9, (y / S) * 9);
-    const c = ramp(pal, b * 0.3 + m * 0.25 + (mo - 0.5) * 0.35 + 0.28 + (f - 0.5) * 0.18);
-    const k = 1 + (h - 0.5) * 0.1 + (g - 0.5) * 0.16 + (g > 0.8 ? (g - 0.8) * 0.6 : 0), o = (y * S + x) * 4;
-    C[o] = Math.min(255, c[0] * k); C[o + 1] = Math.min(255, c[1] * k); C[o + 2] = Math.min(255, c[2] * k); C[o + 3] = 255;
-    H[y * S + x] = f * 0.25 + h * 0.45 + g * 0.55 + g2 * 0.3;
-  }
-  return { map: dataTex(C, S, true), normal: dataTex(normalFrom(H, S, 4), S, false) };
-}
-
-// Painted cellular PVC: near-uniform colour with embossed cedar grain
-function claddingMaps(color) {
-  const S = 512, H = new Float32Array(S * S), C = new Uint8Array(S * S * 4);
-  const g1 = noise1(90, 21), g2 = noise1(260, 22), warp = noise2(5, 23), mott = noise2(8, 24), base = hex(color);
-  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
-    const u = (x + (warp((x / S) * 5, (y / S) * 5) - 0.5) * 60) / S, a = g1(u * 90), b = g2(u * 260), m = mott((x / S) * 8, (y / S) * 8);
-    const o = (y * S + x) * 4, k = 1 + (a - 0.5) * 0.0125 + (m - 0.5) * 0.015;
-    C[o] = Math.min(255, base[0] * k); C[o + 1] = Math.min(255, base[1] * k); C[o + 2] = Math.min(255, base[2] * k); C[o + 3] = 255;
-    H[y * S + x] = Math.pow(a, 3) * 0.8 + b * 0.25;
-  }
-  return { map: dataTex(C, S, true), normal: dataTex(normalFrom(H, S, 4), S, false) };
-}
-
-// generated on first use only (each costs a few ms to tens of ms on the CPU)
+// [generator, args, onDemand] per map; built in the worker during load (prepareMaps), or on the main
+// thread if a product needs one before the worker is done (onDemand: alternates no product uses now)
 const MAPS = {
-  deck: () => deckMaps([0xdcdddc, 0xe1e2e1, 0xe5e6e5, 0xe9eae9]), // DuxxBak "Cool Sand" (client's test build)
-  cladding: () => claddingMaps(0xfcfcfc),
+  // CMF sheet: Driftwood / Boardwalk Gray #B7B7B7, wire brushed
+  deck: ['deckMaps', [[0xc6c6c4, 0xcfcfcd, 0xd7d7d5, 0xe0e0de]]], // lifted: the studio light renders ~0.8x
+  'deck-sand': ['deckMaps', [[0xdcdddc, 0xe1e2e1, 0xe5e6e5, 0xe9eae9]], true], // DuxxBak "Cool Sand" (client's test build)
+  cladding: ['claddingMaps', [0xefefef]], // Polar White
+  hammered: ['hammeredMaps', [0x151515]],
 };
 const mapCache = {};
-const getMap = (name) => (mapCache[name] ??= MAPS[name]());
+const textures = ({ S, map, normal }) => ({ map: dataTex(map, S, true), normal: dataTex(normal, S, false) });
+const getMap = (name) => (mapCache[name] ??= textures(GENERATORS[MAPS[name][0]](...MAPS[name][1])));
+
+// generate every procedural map off the main thread; resolves when all are cached
+let mapsReady;
+export function prepareMaps() {
+  return (mapsReady ??= new Promise((resolve) => {
+    let worker;
+    try { worker = new MapsWorker(); } catch { return resolve(); }
+    const todo = new Set(Object.keys(MAPS).filter((n) => !MAPS[n][2] && !mapCache[n]));
+    if (!todo.size) return resolve();
+    worker.onmessage = ({ data }) => {
+      mapCache[data.name] ??= textures(data);
+      todo.delete(data.name);
+      if (!todo.size) { worker.terminate(); resolve(); }
+    };
+    worker.onerror = () => { worker.terminate(); resolve(); };
+    for (const name of todo) worker.postMessage({ name, fn: MAPS[name][0], args: MAPS[name][1] });
+  }));
+}
 
 // Photo textures: [file prefix, tile size in inches]. Files: <prefix>_color.jpg, _normal.jpg, _rough.jpg
 //   deck-oak: Poly Haven "Oak Veneer 01" (CC0), 1.83 m tile; grain runs along texture v = board length
@@ -124,7 +76,8 @@ function getPhoto(name) {
 }
 
 // --- finishes ---------------------------------------------------------------------
-// Swap values for the client's specs (colour, gloss) as they arrive.
+// Colour, opacity type and gloss from the client's CMF sheet ("AmeriLux – 3D Render Material Specs",
+// 2026-10-09). Roughness values are our reading of its finish names (Gloss / Matte-Satin / Mill...).
 // Only glass-like finishes (`glass()`: clear, bronze) show what's behind them; everything else covers.
 // `edge`: [colour, opacity] of the outline drawn on cut edges of see-through sheets.
 
@@ -138,26 +91,42 @@ export const FINISHES = {
   // opal = soft glowing white
   'poly-clear': {
     ...glass({
-      color: 0xb3d6cf, opacity: 0.1, roughness: 0.1, clearcoatRoughness: 0.07,
+      // CMF sheet: clear #FFFFFF, 82% light transmission; its reference photo reads near-neutral, so the
+      // Figma teal is toned down to a faint cool cast
+      color: 0xcde3df, opacity: 0.09, roughness: 0.1, clearcoatRoughness: 0.07,
       iridescence: 0.35, iridescenceIOR: 1.3, iridescenceThicknessRange: [180, 420],
     }),
     edge: [0x3d6b64, 0.75],
   },
-  'poly-bronze': { ...glass({ color: 0x8c6e58, opacity: 0.5, roughness: 0.06, clearcoatRoughness: 0.04 }), edge: [0x6b4226, 0.7] },
-  'poly-opal': white({ roughness: 0.4, clearcoat: 0.5, clearcoatRoughness: 0.15, envMapIntensity: 1, emissiveIntensity: 0.22 }), // milky, glowing: covers
+  // 5-wall bronze #8A7460, 30% light transmission over five skins
+  'poly-bronze': { ...glass({ color: 0x8a7460, opacity: 0.24, roughness: 0.06, clearcoatRoughness: 0.04 }), edge: [0x6b4226, 0.7] },
+  'poly-opal': white({ color: 0xf5f5f5, roughness: 0.4, clearcoat: 0.5, clearcoatRoughness: 0.15, envMapIntensity: 1, emissiveIntensity: 0.22 }), // milky, glowing: covers
+  // flat sheet and window well cover: 98% light transmission, near water-clear, no frost
+  'poly-flat': { ...glass({ color: 0xdbeeea, opacity: 0.05, roughness: 0.02, clearcoatRoughness: 0.01 }), edge: [0x5a8a82, 0.7] },
+  'acrylic-clear': { ...glass({ color: 0xe6f2f0, ior: 1.49, opacity: 0.05, roughness: 0.015, clearcoatRoughness: 0.01 }), edge: [0x6f9690, 0.7] },
   // multiwall inner ribs
-  'rib-clear': glass({ color: 0xb3d6cf, opacity: 0.16, roughness: 0.14, clearcoat: 0.4 }),
+  'rib-clear': glass({ color: 0xcde3df, opacity: 0.16, roughness: 0.14, clearcoat: 0.4 }),
   'rib-bronze': glass({ color: 0x6e5444, opacity: 0.22, roughness: 0.12, clearcoat: 0.4 }),
-  'rib-opal': white({ roughness: 0.35 }),
-  // PVC
-  'pvc-white': white({ color: 0xf9fafc, emissive: 0xf8faff, emissiveIntensity: 0.15, roughness: 0.3, clearcoat: 0.4, clearcoatRoughness: 0.22 }),
-  'pvc-form': white({ roughness: 0.42, clearcoat: 0.15, clearcoatRoughness: 0.4 }),
-  cladding: { params: { roughness: 0.58, clearcoat: 0.1, clearcoatRoughness: 0.5, emissive: 0xffffff, emissiveIntensity: 0.14, normalScale: new THREE.Vector2(0.275, 0.275) }, maps: 'cladding' },
-  // galvanized steel (window wells: placeholder until specs)
-  'steel-galv': { params: { color: 0xc3c7ca, metalness: 1, roughness: 0.36, side: THREE.DoubleSide } },
-  // composite
-  deck: { params: { roughness: 1, envMapIntensity: 0.9, clearcoat: 0.08, clearcoatRoughness: 0.5, normalScale: new THREE.Vector2(1, 1) }, photo: 'deck-oak' },
-  'deck-sand': { params: { roughness: 0.8, envMapIntensity: 0.8, normalScale: new THREE.Vector2(0.9, 0.9) }, maps: 'deck' },
+  'rib-opal': white({ color: 0xf5f5f5, roughness: 0.35 }),
+  // PVC. EZ Liner / EZ Forms: Ultra White, matte / satin; Agrilite MR9: Ultra White, gloss
+  'pvc-white': white({ color: 0xf9fafc, emissive: 0xf8faff, emissiveIntensity: 0.15, roughness: 0.48, clearcoat: 0.12, clearcoatRoughness: 0.45 }),
+  'pvc-form': white({ roughness: 0.5, clearcoat: 0.1, clearcoatRoughness: 0.5 }),
+  'pvc-gloss': white({ color: 0xf9fafc, emissive: 0xf8faff, emissiveIntensity: 0.15, roughness: 0.2, clearcoat: 0.8, clearcoatRoughness: 0.1 }),
+  // KLAR TK6S: white #F5F5F2 matte / satin, co-extruded black #202020 thermoacoustic core
+  'pvc-klar': white({ color: 0xf5f5f2, emissive: 0xf5f5f2, emissiveIntensity: 0.12, roughness: 0.55, clearcoat: 0.08, clearcoatRoughness: 0.5 }),
+  'pvc-core': { params: { color: 0x202020, roughness: 0.75 } },
+  // Elite: Polar White #EFEFEF, matte / satin, woodgrain "hardly noticeable unless close"
+  // no bump: the 8-bit grain normal map terraces into contour lines on the flat faces
+  cladding: { params: { roughness: 0.62, clearcoat: 0.06, clearcoatRoughness: 0.55, emissive: 0xffffff, emissiveIntensity: 0.14 }, maps: 'cladding', bump: false },
+  // HDPE: black #151515, textured / hammered, waxy
+  'hdpe-black': { params: { roughness: 0.55, envMapIntensity: 1.1, normalScale: new THREE.Vector2(0.6, 0.6) }, maps: 'hammered' },
+  // window well: galvanized steel #BCBBB5, mill / metallic
+  'steel-galv': { params: { color: 0xbcbbb5, metalness: 0.65, roughness: 0.42, envMapIntensity: 1.5, side: THREE.DoubleSide } },
+  // composite decking: Driftwood / Boardwalk Gray #B7B7B7, wire brushed (matte)
+  deck: { params: { roughness: 0.85, envMapIntensity: 0.8, normalScale: new THREE.Vector2(0.9, 0.9) }, maps: 'deck' },
+  // alternates kept for comparison: oak photo texture (placeholder) and the client's test-build "Cool Sand"
+  'deck-oak': { params: { roughness: 1, envMapIntensity: 0.9, clearcoat: 0.08, clearcoatRoughness: 0.5, normalScale: new THREE.Vector2(1, 1) }, photo: 'deck-oak' },
+  'deck-sand': { params: { roughness: 0.8, envMapIntensity: 0.8, normalScale: new THREE.Vector2(0.9, 0.9) }, maps: 'deck-sand' },
 };
 
 // --- shader patches ---------------------------------------------------------------
@@ -238,7 +207,7 @@ export function realMaterial(name, { glow } = {}) {
       return c;
     };
     m.map = off(t.map);
-    m.normalMap = off(t.normal);
+    if (f.bump !== false) m.normalMap = off(t.normal);
     if (t.rough) m.roughnessMap = off(t.rough);
     if (f.maps === 'cladding') m.emissiveMap = m.map;
   }
@@ -274,7 +243,8 @@ function softboxTex() {
   return t;
 }
 
-export function studioEnvironment(renderer) {
+// pmrem: a shared PMREMGenerator (its blur shader is the expensive compile; one generator compiles it once)
+export function studioEnvironment(pmrem) {
   const s = new THREE.Scene(), tex = softboxTex();
   s.add(new THREE.Mesh(new THREE.BoxGeometry(44, 26, 44), new THREE.MeshBasicMaterial({ color: new THREE.Color(0.068, 0.075, 0.088), side: THREE.BackSide })));
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(44, 44), new THREE.MeshBasicMaterial({ color: new THREE.Color(0.29, 0.305, 0.325) }));
@@ -294,9 +264,7 @@ export function studioEnvironment(renderer) {
   card(26, 26, [0, 12.5, 8], 0.8); // overhead fill
   card(9, 6, [11, 1, 18], 1.6); // front fill card
 
-  const pmrem = new THREE.PMREMGenerator(renderer);
   const env = pmrem.fromScene(s, 0.02).texture;
-  pmrem.dispose();
   s.traverse((o) => { o.geometry?.dispose(); o.material?.dispose(); });
   tex.dispose();
   return env;

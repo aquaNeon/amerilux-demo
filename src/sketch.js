@@ -1,8 +1,9 @@
-// "Sketch" look: architectural graphite sketch, drawn in screen space.
+// "Sketch" look: clean technical line drawing, drawn in screen space.
 //   pass A  solid products -> data target: R = simple lambert tone, GB = view normal xy, A = focus weight
 //   pass B  every outline (incl. see-through sheets, multiwall ribs) -> same target, marked R = -1
-//   post    wobbly double-stroke outlines (from pass B + depth/normal edges) on paper-filled faces,
-//           chalky breakup
+//   post    single ink line (pass B feature lines + depth silhouettes) over paper-filled faces
+//   down    the data target is supersampled (2x, 1.5x on 2x screens); this box-filters it to the
+//           screen, which is what anti-aliases the lines
 // Focus weight per object is set by Stage via onBeforeRender (uWeight).
 import * as THREE from 'three';
 
@@ -31,66 +32,63 @@ const POST_FS = /* glsl */`
 uniform sampler2D tData, tDepth;
 uniform vec2 uRes;      // target pixels
 uniform float uPx;      // target pixels per CSS px
-uniform float uSeed, uNear, uFar, uOrtho;
+uniform float uNear, uFar, uOrtho;
 uniform vec3 uBg, uInk, uPaper;
 varying vec2 vUv;
 
-float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-float vnoise(vec2 p) {
-  vec2 i = floor(p), f = fract(p);
-  f = f * f * (3.0 - 2.0 * f);
-  return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y);
-}
 float depthL(vec2 uv) {
   float d = texture2D(tDepth, uv).r;
   return uOrtho > 0.5 ? uNear + d * (uFar - uNear) : uNear * uFar / (uFar - d * (uFar - uNear));
 }
-// hand wobble: low-frequency displacement in CSS px, re-seeded per "frame" of the boil
-vec2 wobble(vec2 uv, float seed, float amp) {
-  vec2 p = uv * uRes / uPx / 70.0 + seed * 17.13;
-  return uv + (vec2(vnoise(p), vnoise(p + 31.7)) - 0.5) * amp * uPx / uRes;
+// nearest depth over a pixel and its 4 neighbours: closes 1 px pinholes in imported meshes, which
+// would otherwise each draw a dot (ortho: larger = farther)
+float depthC(vec2 uv) {
+  vec2 p = 1.0 / uRes;
+  return min(min(min(depthL(uv), depthL(uv + vec2(p.x, 0.0))), min(depthL(uv - vec2(p.x, 0.0)), depthL(uv + vec2(0.0, p.y)))), depthL(uv - vec2(0.0, p.y)));
 }
-// outline strength around uv: drawn lines (pass B) thickened, plus depth / normal breaks
+// outline strength around uv: drawn lines (pass B) thickened, plus silhouettes from depth breaks.
+// Breaks are second differences: a sloped face (linear depth) gives none, so the threshold can sit
+// low enough to keep small steps continuous (one corrugation rib passing in front of the next).
+// (No normal-break edges: on curved, tessellated parts they double the feature lines.)
 float stroke(vec2 uv) {
   vec2 o = 0.6 * uPx / uRes;
   float line = 0.0, hits = 0.0;
-  vec4 c = texture2D(tData, uv);
   // 3x3 pixel neighbourhood: thickens the 1 px line, and counts how many pixels it covers
   vec2 px1 = 1.0 / uRes;
   for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
-    vec4 s = texture2D(tData, uv + vec2(float(x), float(y)) * px1);
-    if (s.r < -0.5) { line = max(line, s.a * (x == 0 && y == 0 ? 1.0 : 0.45)); hits += 1.0; }
+    vec2 q = uv + vec2(float(x), float(y)) * px1;
+    vec4 s = texture2D(tData, q);
+    // skip line pixels seen through a 1 px crack in a nearer face (their depth is well behind the
+    // pixels around them): hidden outlines would leak through as dots
+    if (s.r < -0.5 && depthL(q) - depthC(q) < 3.0) { line = max(line, s.a * (x == 0 && y == 0 ? 1.0 : 0.45)); hits += 1.0; }
   }
   line *= step(1.5, hits); // a real line covers neighbouring pixels (incl. diagonal); lone pixels are depth noise
-  float z = depthL(uv), dz = 0.0, dn = 0.0;
-  vec2 n0 = c.gb;
-  for (int i = 0; i < 4; i++) {
-    vec2 d = vec2(i == 0 ? 1.0 : i == 1 ? -1.0 : 0.0, i == 2 ? 1.0 : i == 3 ? -1.0 : 0.0) * o * 1.3;
-    dz = max(dz, abs(depthL(uv + d) - z));
-    vec4 s = texture2D(tData, uv + d);
-    if (s.r > -0.5 && c.r > -0.5) dn = max(dn, length(s.gb - n0));
-  }
-  float w = max(c.a, 0.25);
-  float edge = max(smoothstep(6.0, 14.0, dz), smoothstep(0.18, 0.35, dn)) * w;
-  return max(line, edge);
+  float z2 = 2.0 * depthC(uv);
+  vec2 dx = vec2(o.x * 1.3, 0.0), dy = vec2(0.0, o.y * 1.3);
+  float dz = max(abs(depthC(uv + dx) + depthC(uv - dx) - z2), abs(depthC(uv + dy) + depthC(uv - dy) - z2));
+  float w = max(texture2D(tData, uv).a, 0.25);
+  return max(line, smoothstep(2.5, 6.0, dz) * w);
 }
 void main() {
-  vec2 px = vUv * uRes / uPx; // CSS px
-  float grain = vnoise(px * 1.3) * 0.6 + vnoise(px * 0.37 + 5.0) * 0.4;
-  float tooth = smoothstep(0.18, 0.55, grain);
+  float ink = stroke(vUv);
 
-  // two slightly different passes of the pencil
-  float s1 = stroke(wobble(vUv, uSeed, 2.2));
-  float s2 = stroke(wobble(vUv, uSeed + 3.7, 2.6) + vec2(0.6, -0.4) * uPx / uRes);
-  float ink = max(s1, s2 * 0.45) * mix(0.5, 1.0, tooth);
-
-  // solid faces: plain paper fill (no hatching)
+  // solid faces: plain paper fill
   vec4 c = texture2D(tData, vUv);
   float solid = (c.r > -0.5 && texture2D(tDepth, vUv).r < 1.0) ? 1.0 : 0.0;
 
   vec3 col = mix(uBg, uPaper, solid * mix(0.35, 0.8, c.a));
-  col = mix(col, uInk, clamp(ink, 0.0, 1.0) * 0.8);
+  col = mix(col, uInk, clamp(ink, 0.0, 1.0) * 0.85);
   gl_FragColor = vec4(col, 1.0);
+}`;
+
+// 2x2 box over the supersampled drawing (4 bilinear taps, also fine for non-integer ratios)
+const DOWN_FS = /* glsl */`
+uniform sampler2D t;
+uniform vec2 uStep; // a quarter of an output pixel, in uv
+varying vec2 vUv;
+void main() {
+  gl_FragColor = 0.25 * (texture2D(t, vUv + vec2(-uStep.x, -uStep.y)) + texture2D(t, vUv + vec2(uStep.x, -uStep.y))
+    + texture2D(t, vUv + vec2(-uStep.x, uStep.y)) + texture2D(t, vUv + vec2(uStep.x, uStep.y)));
 }`;
 
 export class SketchPipeline {
@@ -111,19 +109,24 @@ export class SketchPipeline {
       vertexShader: 'void main() { gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); gl_Position.z -= 2e-5 * gl_Position.w; }',
       fragmentShader: LINE_FS, uniforms: { uWeight: { value: 1 } }, depthWrite: false,
     });
+    this.drawn = new THREE.WebGLRenderTarget(1, 1, { depthBuffer: false }); // post output, before the downsample
     this.post = new THREE.ShaderMaterial({
       vertexShader: QUAD_VS, fragmentShader: POST_FS, depthTest: false, depthWrite: false, toneMapped: false,
       uniforms: {
         tData: { value: this.target.texture }, tDepth: { value: this.target.depthTexture },
-        uRes: { value: new THREE.Vector2(1, 1) }, uPx: { value: 1 }, uSeed: { value: 0 },
+        uRes: { value: new THREE.Vector2(1, 1) }, uPx: { value: 1 },
         uNear: { value: 1 }, uFar: { value: 2 }, uOrtho: { value: 1 },
         uBg: { value: new THREE.Color(0xf5f5f5) }, uInk: { value: new THREE.Color(0x2a2a2c) }, uPaper: { value: new THREE.Color(0xfcfcfa) },
       },
     });
+    this.down = new THREE.ShaderMaterial({
+      vertexShader: QUAD_VS, fragmentShader: DOWN_FS, depthTest: false, depthWrite: false, toneMapped: false,
+      uniforms: { t: { value: this.drawn.texture }, uStep: { value: new THREE.Vector2() } },
+    });
     this.scene = new THREE.Scene();
-    const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.post);
-    quad.frustumCulled = false;
-    this.scene.add(quad);
+    this.quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.post);
+    this.quad.frustumCulled = false;
+    this.scene.add(this.quad);
     this.cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
   }
 
@@ -132,16 +135,18 @@ export class SketchPipeline {
 
   // w, h: drawing-buffer pixels; px: drawing-buffer pixels per CSS px
   setSize(w, h, px = 1) {
-    this.target.setSize(w, h);
-    this.post.uniforms.uRes.value.set(w, h);
-    this.post.uniforms.uPx.value = px;
+    const ss = px >= 2 ? 1.5 : 2, W = Math.round(w * ss), H = Math.round(h * ss);
+    this.target.setSize(W, H);
+    this.drawn.setSize(W, H);
+    this.post.uniforms.uRes.value.set(W, H);
+    this.post.uniforms.uPx.value = px * ss;
+    this.down.uniforms.uStep.value.set(0.25 / w, 0.25 / h);
   }
 
   // hide: objects to leave out of pass A (see-through sheets); lines: every outline object
-  render(scene, cam, { hide = [], lines = [], time = 0, boil = false, out = null } = {}) {
+  render(scene, cam, { hide = [], lines = [], out = null } = {}) {
     const r = this.r;
     const u = this.post.uniforms;
-    u.uSeed.value = boil ? Math.floor(time * 6) : 0; // optional hand-drawn "boil": 6 redraws a second
     u.uNear.value = cam.near; u.uFar.value = cam.far; u.uOrtho.value = cam.isOrthographicCamera ? 1 : 0;
 
     const linesVis = lines.map((l) => l.visible);
@@ -170,6 +175,10 @@ export class SketchPipeline {
     lines.forEach((l, i) => { l.visible = linesVis[i]; });
     r.shadowMap.enabled = shadow;
 
+    this.quad.material = this.post;
+    r.setRenderTarget(this.drawn);
+    r.render(this.scene, this.cam);
+    this.quad.material = this.down;
     r.setRenderTarget(out);
     r.render(this.scene, this.cam);
   }

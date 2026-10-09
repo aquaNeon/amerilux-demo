@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Amerilux — Other products (strip)</title>
+  <link rel="icon" href="data:,">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/src/demo.css">
+  <style>
+    /* Strip variant reference (Figma 14172:51607). Same item markup as the hero accordion:
+       in Webflow it is one component, the variant only restyles it. */
+    html, body { background: #fff; }
+    .other { padding: 80px 0 80px; --amx-layout: strip; }
+    .other__intro { padding: 0 64px 32px; display: flex; flex-direction: column; gap: 16px; align-items: flex-start; border-bottom: 1px solid var(--line); }
+    .other__title { font-size: 42px; font-weight: 600; line-height: 1; letter-spacing: -1.26px; }
+    .other__lede { max-width: 485px; font-size: 16px; line-height: 1.33; color: var(--text-1); }
+    .strip { position: relative; margin: 32px 64px 0; height: 429px; background: var(--bg); }
+    .strip__stage { position: absolute; inset: 0; }
+    .strip__item { display: none; }
+    .strip__item.is-active { display: block; }
+    .strip__caption { position: absolute; left: 35px; bottom: 34px; width: 300px; display: flex; flex-direction: column; gap: 16px; pointer-events: none; }
+    .strip__title { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.4px; }
+    .strip__text { font-size: 14px; line-height: 1.3; color: var(--text-1); }
+    .strip__cta { position: absolute; right: 161px; bottom: 34px; width: 318px; height: 66px; display: flex; align-items: flex-end; justify-content: space-between; padding: 0 16px 15px; background: #04152b; color: #fff; font-size: 16px; font-weight: 600; text-decoration: none; }
+    .strip__cta svg { fill: #fff; }
+    .strip__nav { position: absolute; right: 38px; bottom: 34px; display: flex; gap: 8px; z-index: 1; }
+  </style>
+</head>
+<body>
+  <!-- ?exclude test: open /strip.html with data-amx-exclude, or serve at /products/<slug> -->
+  <section class="other" data-amx-root data-amx-style="color" data-amx-exclude="panel-systems">
+    <header class="other__intro">
+      <div class="eyebrow"><span class="eyebrow__dot"></span>Our products</div>
+      <h2 class="other__title">Other products to consider</h2>
+      <p class="other__lede">If your build calls for more than one material, AmeriLux has the sheets, accessories, and expertise to handle it. Reach out and see how our extensive range and people-first approach can make a real difference.</p>
+    </header>
+    <div class="strip">
+      <div class="strip__stage" data-amx-stage></div>
+        <div class="strip__item" data-amx-item="multiwall-sheets">
+          <div class="strip__caption"><h3 class="strip__title">Multiwall Sheets</h3><p class="strip__text">Lightweight, virtually unbreakable glazing panels, cut to size for high light transmission and low-maintenance performance.</p></div>
+          <a class="strip__cta" href="/products/multiwall-sheets">Explore Multiwall Sheets<svg width="6" height="12" viewBox="0 0 6 12"><path d="M6 6 0 0v12z"/></svg></a>
+        </div>
+        <div class="strip__item" data-amx-item="corrugated-sheets">
+          <div class="strip__caption"><h3 class="strip__title">Corrugated Sheets</h3><p class="strip__text">Polycarbonate Greca, Sine Wave and PBU profiles, plus Agrilite PVC and Klar thermoacoustic sheet for roofing and walls.</p></div>
+          <a class="strip__cta" href="/products/corrugated-sheets">Explore Corrugated Sheets<svg width="6" height="12" viewBox="0 0 6 12"><path d="M6 6 0 0v12z"/></svg></a>
+        </div>
+        <div class="strip__item" data-amx-item="flat-sheets">
+          <div class="strip__caption"><h3 class="strip__title">Flat Sheets</h3><p class="strip__text">Solid polycarbonate and acrylic sheet stock, cut, drilled and formed in-house to your drawings.</p></div>
+          <a class="strip__cta" href="/products/flat-sheets">Explore Flat Sheets<svg width="6" height="12" viewBox="0 0 6 12"><path d="M6 6 0 0v12z"/></svg></a>
+        </div>
+        <div class="strip__item" data-amx-item="panel-systems">
+          <div class="strip__caption"><h3 class="strip__title">Panel Systems</h3><p class="strip__text">EZ Liner PVC panels in 16" and 18" widths for washable, moisture-proof interior walls, and EZ Forms stay-in-place PVC concrete formwork.</p></div>
+          <a class="strip__cta" href="/products/panel-systems">Explore Panel Systems<svg width="6" height="12" viewBox="0 0 6 12"><path d="M6 6 0 0v12z"/></svg></a>
+        </div>
+        <div class="strip__item" data-amx-item="decking-railing">
+          <div class="strip__caption"><h3 class="strip__title">Decking &amp; Railing</h3><p class="strip__text">DuxxBak decking with a built-in drainage flange, plus I.Dekk, GeoDeck and Optima Dekk boards and matching fascia.</p></div>
+          <a class="strip__cta" href="/products/decking-railing">Explore Decking &amp; Railing<svg width="6" height="12" viewBox="0 0 6 12"><path d="M6 6 0 0v12z"/></svg></a>
+        </div>
+        <div class="strip__item" data-amx-item="siding-cladding">
+          <div class="strip__caption"><h3 class="strip__title">Siding &amp; Cladding</h3><p class="strip__text">Elite cellular PVC cladding in lap siding and board &amp; batten profiles. The look of painted wood without the upkeep.</p></div>
+          <a class="strip__cta" href="/products/siding-cladding">Explore Siding &amp; Cladding<svg width="6" height="12" viewBox="0 0 6 12"><path d="M6 6 0 0v12z"/></svg></a>
+        </div>
+        <div class="strip__item" data-amx-item="specialty-products">
+          <div class="strip__caption"><h3 class="strip__title">Specialty Products</h3><p class="strip__text">Window wells and clear polycarbonate window well covers, fabricated to fit.</p></div>
+          <a class="strip__cta" href="/products/specialty-products">Explore Specialty Products<svg width="6" height="12" viewBox="0 0 6 12"><path d="M6 6 0 0v12z"/></svg></a>
+        </div>
+      <div class="strip__nav">
+        <button class="nav-btn nav-btn--prev" data-amx-prev aria-label="Previous product"><svg width="6" height="12" viewBox="0 0 6 12"><path d="M6 6 0 0v12z"/></svg></button>
+        <button class="nav-btn" data-amx-next aria-label="Next product"><svg width="6" height="12" viewBox="0 0 6 12"><path d="M6 6 0 0v12z"/></svg></button>
+      </div>
+    </div>
+  </section>
+  <script type="module" src="/src/amerilux-3d.js"></script>
+</body>
+</html>

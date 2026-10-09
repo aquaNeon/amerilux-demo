@@ -13,6 +13,15 @@ npm run build      # -> dist/
 npm run models     # re-optimise GLBs from ../export into public/models
 ```
 
+STEP models (window well) go straight to `public/models`, keeping their own coordinates:
+
+```bash
+STEP_IN=in.STEP OBJ_OUT=out.obj LIN=0.6 ANG=0.35 "C:/Program Files/FreeCAD 1.0/bin/freecadcmd.exe" tools/step2obj.py
+node tools/obj2glb.mjs out.obj public/models/<name>.glb [part indices | all]
+```
+
+`step2obj.py` prints each solid's size, so you can split a STEP file into separate GLBs by part index.
+
 ## How it works
 
 - One WebGL canvas behind the left column. The orthographic camera maps 1 world unit to 1 CSS px,
@@ -27,12 +36,12 @@ npm run models     # re-optimise GLBs from ../export into public/models
 
 | Tab | 3D |
 | --- | --- |
-| Multiwall / Corrugated | extruded from APC profile drawings |
-| Flat Sheets | generic placeholder |
-| Panel Systems | GLB: EZ Liner 16" / 18" |
+| Multiwall / Corrugated | extruded from APC profile drawings, lineup + materials from the CMF sheet |
+| Flat Sheets | HDPE / PC / acrylic, sizes from the CMF sheet |
+| Panel Systems | GLB: EZ Liner 16" / 18" + EZ Forms 8" formwork |
 | Decking & Railing | extruded DuxxBak 1080 section |
 | Siding & Cladding | extruded Elite lap siding section |
-| Specialty Products | GLB: EZ Forms 8" formwork assembly |
+| Specialty Products | GLB from STEP: egress well 5036 + Premium Square Flat cover 5237 |
 
 See [PLACEHOLDERS.md](PLACEHOLDERS.md) for everything invented for the demo.
 
