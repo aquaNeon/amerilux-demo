@@ -10,6 +10,8 @@
 //   data-amx-layout ("hero" | "strip", slot layout; or set CSS custom property --amx-layout on the root,
 //     so a Webflow component variant can switch it), default "hero",
 //   data-amx-exclude (comma-separated slugs to leave out),
+// [data-amx-current="<slug>"] anywhere on the page (e.g. bound to the CMS slug on the product template)
+//   leaves that product out of every carousel on the page.
 //   data-amx-center-x / data-amx-center-y (0-1, active slot position in the stage, default per layout),
 //   data-amx-style ("color" | "mono" | "sketch", initial visual style).
 //   [data-amx-set-style="<style>"] buttons switch style; the active one gets .is-active.
@@ -38,6 +40,7 @@ const path = (href) => new URL(href, location.href).pathname.replace(/\/+$/, '')
 // runs on page load, before any 3D, so excluded items never flash
 function prune(root) {
   const skip = (root.dataset.amxExclude || '').split(',').map((v) => v.trim()).filter(Boolean);
+  for (const el of document.querySelectorAll('[data-amx-current]')) skip.push(el.dataset.amxCurrent.trim());
   const here = path(location.href);
   for (const el of root.querySelectorAll('[data-amx-item]')) {
     const a = el.querySelector('a[href]:not([href="#"]):not([href=""])');

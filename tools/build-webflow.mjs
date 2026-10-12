@@ -1,12 +1,13 @@
-// Builds the Webflow paste for the 3D slider from webflow/section.html (parser and copy page from the
-// Shuttlerock build-webflow.mjs).
+// Builds the Webflow pastes for the 3D slider (webflow/section.html, home) and the "Other products"
+// strip (webflow/other.html, product template). Parser and copy page from the Shuttlerock build-webflow.mjs.
 //
 //   npm run build:webflow && git commit + push cdn/     (the embed loads the cdn/ build from jsDelivr)
 //   node tools/build-webflow.mjs                         -> dist/webflow/
 //       paste.html       Copy buttons: put the section on the clipboard in Webflow's format
-//       embed-css.txt    CSS embed, to replace the embed's code on later updates
-//       embed-js.txt     JS embed
+//       embed-css.txt    CSS embed, to replace the embed's code on later updates (other-embed-css.txt: strip)
+//       embed-js.txt     JS embed (same for both)
 //       preview.html     the section on a page with the live site CSS, running the local cdn/ build
+//       preview-other.html  the strip, the same way (?current=<slug> leaves that product out)
 //   python -m http.server 5174   (from the repo root) -> http://127.0.0.1:5174/dist/webflow/paste.html
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -61,7 +62,19 @@ const tab = ([slug, name, text], fill) => `      <div class="three_tab" data-amx
           </div>
         </div>
       </div>`;
+// strip: one item per product, only the open one shows. The button component links to the product
+// page, which also lets the script leave the current product out
+const item = ([slug, name, text], fill) => `    <div class="other_item" data-amx-item="${slug}">
+      <div class="other_caption">
+        ${wrap('other_item_title_wrap', `<h3 class="pv_tab_name">${name}</h3>`, fill)}
+        ${wrap('other_item_text_wrap', `<p class="pv_tab_text">${text}</p>`, fill)}
+      </div>
+      ${wrap('other_actions_wrap', `<a class="pv_cta" href="/products/${slug}">Explore ${name}</a>`, fill)}
+    </div>`;
 const PREVIEW_FILL = {
+  other_eyebrow_wrap: '<div class="pv_eyebrow">Our products</div>',
+  other_title_wrap: '<h2 class="pv_title">Other products to consider</h2>',
+  other_text_wrap: '<p class="pv_tab_text">If your build calls for more than one material, AmeriLux has the sheets, accessories, and expertise to handle it. Reach out and see how our extensive range and people-first approach can make a real difference.</p>',
   three_eyebrow_wrap: '<div class="pv_eyebrow">Our products</div>',
   three_title_wrap: '<h2 class="pv_title">Building materials for every environment. Made to measure.</h2>',
   three_text_wrap: '<p class="pv_text">Domestic polycarbonate manufacturing, nationwide plastic and building materials distribution, and in-house fabrication. All under one roof. From greenhouse walls to stadium canopies, we&#39;ve got you covered.</p>',
@@ -70,12 +83,14 @@ const PREVIEW_FILL = {
 // Webflow gets the CSS without comments (the source keeps them); embeds are ASCII only
 const stripCss = (t) => t.replace(/\r\n/g, '\n').replace(/\/\*[\s\S]*?\*\//g, '').replace(/[ \t]+$/gm, '').replace(/\n{2,}/g, '\n');
 const ascii = (t) => t.replace(/[^\x00-\x7f]/g, (c) => `\\${c.charCodeAt(0).toString(16).padStart(4, '0')}`);
-const build = (fill) => read('webflow/section.html')
+const build = (file, fill) => read(file)
   .replace(/^<!--[\s\S]*?-->\s*/, '')
   .replace('__TABS__', TABS.map((t) => tab(t, fill)).join('\n'))
+  .replace('__ITEMS__', TABS.map((t) => item(t, fill)).join('\n'))
   .replace('__JS_SRC__', JS_SRC)
   .replace(/<style>([\s\S]*?)<\/style>/g, (m, css) => `<style>${ascii(stripCss(css))}</style>`);
-const source = build(false);
+const source = build('webflow/section.html', false);
+const otherSource = build('webflow/other.html', false);
 
 // ---- Tiny HTML parser (enough for our own source) ------------------------------------------
 const VOID = new Set(['img', 'br', 'hr', 'input', 'meta', 'link']);
@@ -165,6 +180,7 @@ function toXscp(tree) {
 
 // ---- Output --------------------------------------------------------------------------------
 const tree = parse(source);
+const otherTree = parse(otherSource);
 const find = (nodes, test) => {
   for (const el of nodes) {
     if (test(el)) return el;
@@ -172,7 +188,7 @@ const find = (nodes, test) => {
     if (hit) return hit;
   }
 };
-const embedHtml = (cls) => find(tree, (el) => el.tag === '#embed' && el.attrs.class === cls).html;
+const embedHtml = (t, cls) => find(t, (el) => el.tag === '#embed' && el.attrs.class === cls).html;
 const variants = [
   { key: 'smoke', label: 'Smoke test', note: 'One div with a class, a custom attribute and some text. Paste this first to check the clipboard works.',
     data: toXscp(parse('<div class="three_test" data-amx-test="ok">Paste works</div>')) },
@@ -181,7 +197,11 @@ const variants = [
   { key: 'tabs', label: 'Tabs only (three_tabs)', note: 'The tab list with all 7 tabs, to replace three_tabs inside three_panel in an existing section.',
     data: toXscp([find(tree, (el) => el.attrs?.class === 'three_tabs')]) },
   { key: 'css', label: 'CSS embed code', note: 'Plain text: open the section\'s u-embed-css embed, select all, paste. Same as embed-css.txt.',
-    text: embedHtml('u-embed-css') },
+    text: embedHtml(tree, 'u-embed-css') },
+  { key: 'other', label: 'Other products strip (product template)', note: 'Its own section (other_wrap) + CSS embed + JS embed, for the product template. Make it its own component.',
+    data: toXscp(otherTree) },
+  { key: 'other-css', label: 'Strip CSS embed code', note: 'Plain text: open other_wrap\'s u-embed-css embed, select all, paste. Same as other-embed-css.txt.',
+    text: embedHtml(otherTree, 'u-embed-css') },
 ];
 
 const out = join(root, 'dist', 'webflow');
@@ -189,6 +209,7 @@ mkdirSync(out, { recursive: true });
 for (const v of variants) if (v.data) writeFileSync(join(out, `${v.key}.json`), JSON.stringify(v.data));
 const embeds = [...source.matchAll(/<wf-embed class="([^"]*)">([\s\S]*?)<\/wf-embed>/g)];
 for (const [, cls, html] of embeds) writeFileSync(join(out, cls === 'u-embed-css' ? 'embed-css.txt' : 'embed-js.txt'), html.trim() + '\n');
+writeFileSync(join(out, 'other-embed-css.txt'), embedHtml(otherTree, 'u-embed-css') + '\n');
 
 const json = (v) => JSON.stringify(v).replace(/</g, '\\u003c');
 writeFileSync(join(out, 'paste.html'), `<!doctype html>
@@ -207,7 +228,7 @@ writeFileSync(join(out, 'paste.html'), `<!doctype html>
   ol{color:var(--mute);padding-left:20px;margin:24px 0 0}
   code{font-size:14px}
 </style></head><body><main>
-<h1>Copy to Webflow: 3D slider</h1>
+<h1>Copy to Webflow: 3D slider + Other products strip</h1>
 <p>Click Copy, then select Body (or the element to paste after) in the Webflow Designer and press Ctrl/Cmd+V.</p>
 ${variants.map((v) => `<div class="row"><div><b>${v.label}</b><p>${v.note}</p></div><button data-key="${v.key}" data-type="${v.text ? 'text/plain' : 'application/json'}">Copy</button></div>
 <script type="application/json" id="d-${v.key}">${json(v.text ?? v.data)}</script>`).join('\n')}
@@ -215,7 +236,9 @@ ${variants.map((v) => `<div class="row"><div><b>${v.label}</b><p>${v.note}</p></
   <li>Classes carry no styles: everything is in the CSS embed (first child), styled like the demo. <code>three_wrap</code> is the section; delete the old empty <code>three_wrap</code> section in the site.</li>
   <li>Drop the site's components into the empty wraps: <code>three_eyebrow_wrap</code>, <code>three_title_wrap</code>, <code>three_text_wrap</code>, and per tab <code>three_tab_title_wrap</code> (product name: the collapsed row and the open title), <code>three_tab_text_wrap</code>, <code>three_tab_actions_wrap</code> (button).</li>
   <li>The JS embed (last child) loads the slider from jsDelivr at commit <code>${commit.slice(0, 7)}</code>; three.js and the models load when the section nears the viewport.</li>
-  <li>Tab order = carousel order. Each tab's <code>data-amx-item</code> must stay one of: ${SLUGS.map((s) => `<code>${s}</code>`).join(', ')}.</li>
+  <li>Strip (<code>other_wrap</code>, product template, its own component): drop components into <code>other_eyebrow_wrap</code>, <code>other_title_wrap</code>, <code>other_text_wrap</code>, and per item <code>other_item_title_wrap</code>, <code>other_item_text_wrap</code>, <code>other_actions_wrap</code> (button linking to that product's page). Only the open item's copy and button show.</li>
+  <li>Leave the current product out of the strip: on the product template, add the custom attribute <code>data-amx-current</code> to any element (e.g. a page wrapper, outside the component) and bind its value to the CMS Slug, which must be one of the slugs below. Backup: an item whose button links to the current page is left out too.</li>
+  <li>Tab / item order = carousel order. Each tab's / item's <code>data-amx-item</code> must stay one of: ${SLUGS.map((s) => `<code>${s}</code>`).join(', ')}.</li>
   <li>Thumbnails are Image elements: set an image (or link it to a component property) to use it, or leave Webflow's placeholder and the script renders one from the 3D.</li>
   <li>The 3D, the open tab and the arrows only work on the published site (or Preview): scripts don't run in the Designer canvas.</li>
 </ol>
@@ -242,23 +265,29 @@ const site = (() => { try { return read('webflow/site.html'); } catch { return '
 const siteCss = [...site.matchAll(/<link href="(https:\/\/cdn\.prod\.website-files\.com\/[^"]+\.css)"/g)].map((m) => m[1]);
 // the site's global CSS embeds: whole <style> blocks only (an embed can contain other markup)
 const siteEmbeds = [...site.matchAll(/<div class="u-embed-css w-embed">\s*(<style>[\s\S]*?<\/style>)/g)].map((m) => m[1]).join('\n');
-const previewSection = build(true)
-  .replace(/<div class="(three_[a-z_]+_wrap)"><\/div>/g, (m, c) => `<div class="${c}">${PREVIEW_FILL[c] || ''}</div>`)
+const preview = (file) => build(file, true)
+  .replace(/<div class="((?:three|other)_[a-z_]+_wrap)"><\/div>/g, (m, c) => `<div class="${c}">${PREVIEW_FILL[c] || ''}</div>`)
   .replace(/<wf-embed class="u-embed-js">[\s\S]*?<\/wf-embed>/, '<div class="u-embed-js w-embed"><script type="module" src="../../cdn/amerilux-3d.js"></script></div>')
   .replace(/<wf-embed(?:\s+class="([^"]*)")?>([\s\S]*?)<\/wf-embed>/g, (m, c, html) => `<div class="${c} w-embed">${html}</div>`)
   .replace(/<img class="three_tab_thumb"/g, `<img class="three_tab_thumb" src="${PLACEHOLDER}"`);
-writeFileSync(join(out, 'preview.html'), `<!doctype html>
+// ?current=<slug> leaves that product out, the way data-amx-current does on the product template
+const previewPage = (title, section) => `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>3D Slider Preview</title>
+<title>${title}</title>
 ${siteCss.map((h) => `<link href="${h}" rel="stylesheet">`).join('\n')}
 ${siteEmbeds}
 <style>${read('webflow/preview.css')}</style>
+<script>{ const c = new URLSearchParams(location.search).get('current'); if (c) document.documentElement.dataset.amxCurrent = c; }</script>
 </head><body>
-${previewSection}
+${section}
 </body></html>
-`);
+`;
+writeFileSync(join(out, 'preview.html'), previewPage('3D Slider Preview', preview('webflow/section.html')));
+writeFileSync(join(out, 'preview-other.html'), previewPage('Other Products Preview', preview('webflow/other.html')));
 
-const full = variants[1].data.payload;
-console.log(`dist/webflow/paste.html: ${full.nodes.length} nodes, ${full.styles.length} classes, embeds ${embeds.map((e) => e[2].trim().length).join(' + ')} chars (max ${EMBED_MAX} each)`);
+for (const [key, t] of [['full', tree], ['other', otherTree]]) {
+  const { payload } = variants.find((v) => v.key === key).data;
+  console.log(`dist/webflow/paste.html [${key}]: ${payload.nodes.length} nodes, ${payload.styles.length} classes, CSS embed ${embedHtml(t, 'u-embed-css').length} chars (max ${EMBED_MAX})`);
+}
 console.log(`JS embed: ${JS_SRC}`);
 if (!site) console.warn('! webflow/site.html missing: preview has no site CSS (curl -sL ' + SITE + ' -o webflow/site.html)');

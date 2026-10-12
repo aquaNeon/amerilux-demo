@@ -1,0 +1,82 @@
+<!--
+  Source for the "Other products" strip paste (tools/build-webflow.mjs -> dist/webflow/paste.html).
+  A separate component from the home slider (webflow/section.html), for the product template.
+  Layout matches Figma 14172:51607. Same rules as section.html: text and buttons are empty *_wrap divs
+  for the site's components, one class per element, all styling in the CSS embed.
+  Only the open item (.is-active, set by the script) shows its title, text and button.
+  The current product is left out: bind data-amx-current on the template to the CMS slug, or let the
+  button link to the current page (see src/amerilux-3d.js).
+  __ITEMS__ is filled from TABS in the build script; __JS_SRC__ with the jsDelivr URL of the cdn/ build.
+-->
+<section class="other_wrap" data-amx-root data-amx-layout="strip">
+<wf-embed class="u-embed-css"><style>
+.other_wrap {
+  --other-ink: var(--_swatch---dark-2, #000);
+  --other-line: rgba(0, 0, 0, 0.12);
+  --other-font: var(--_typography---font--primary-family, "PP Neue Montreal", Arial, sans-serif);
+  background-color: var(--_swatch---light-1, #fff);
+  color: var(--other-ink);
+  font-family: var(--other-font);
+  -webkit-font-smoothing: antialiased;
+  padding-block: 80px;
+  overflow: hidden;
+  container: other / inline-size;
+}
+
+/* ---- intro: eyebrow, title, text, then a full-width rule ---- */
+.other_header {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 16px;
+  padding: 0 64px 32px; border-bottom: 1px solid var(--other-line);
+}
+.other_text_wrap { max-width: 485px; }
+
+/* ---- strip: the canvas fills it, the open item's copy and button sit on top ---- */
+.other_strip {
+  position: relative; height: 429px; margin: 32px 64px 0;
+  background-color: var(--_swatch---light-2, #f5f5f5);
+}
+.other_stage { position: absolute; inset: 0; }
+.other_item { display: none; }
+.other_item.is-active { display: block; }
+.other_caption, .other_actions_wrap, .other_nav { position: absolute; bottom: 34px; z-index: 1; }
+.other_caption { left: 35px; width: 300px; display: flex; flex-direction: column; gap: 16px; pointer-events: none; }
+.other_actions_wrap { right: 161px; width: 318px; }
+
+.other_nav { right: 38px; display: flex; gap: 7px; }
+.other_nav_btn {
+  display: grid; place-items: center; width: 46px; height: 66px; padding-top: 20px; cursor: pointer;
+  border-radius: 2px; border: 1px solid rgba(0, 0, 0, 0.2); background-color: rgba(0, 0, 0, 0.1);
+  -webkit-backdrop-filter: blur(25px); backdrop-filter: blur(25px); transition: background-color 0.2s;
+}
+.other_nav_btn:hover { background-color: rgba(0, 0, 0, 0.18); }
+/* arrows: 6 x 12 triangles, the previous one flipped */
+.other_nav_icon { width: 6px; height: 12px; background-color: var(--other-ink); clip-path: polygon(0 0, 100% 50%, 0 100%); }
+[data-amx-prev] .other_nav_icon { transform: scaleX(-1); }
+
+/* ---- small screens (not in Figma): taller strip, copy above the button row ---- */
+@container other (width < 900px) {
+  .other_wrap { padding-block: 56px; }
+  .other_header { padding: 0 20px 24px; }
+  .other_strip { height: 560px; margin: 24px 20px 0; }
+  .other_caption { left: 20px; top: 24px; bottom: auto; width: calc(100% - 40px); }
+  .other_actions_wrap { left: 20px; right: 132px; bottom: 24px; width: auto; }
+  .other_nav { right: 20px; bottom: 24px; }
+}
+</style></wf-embed>
+<div class="other_header">
+  <div class="other_eyebrow_wrap"></div>
+  <div class="other_title_wrap"></div>
+  <div class="other_text_wrap"></div>
+</div>
+<div class="other_strip">
+  <div class="other_stage" data-amx-stage></div>
+  <div class="other_items">
+__ITEMS__
+  </div>
+  <div class="other_nav">
+    <div class="other_nav_btn" data-amx-prev aria-label="Previous product"><div class="other_nav_icon"></div></div>
+    <div class="other_nav_btn" data-amx-next aria-label="Next product"><div class="other_nav_icon"></div></div>
+  </div>
+</div>
+<wf-embed class="u-embed-js"><script type="module" src="__JS_SRC__"></script></wf-embed>
+</section>
