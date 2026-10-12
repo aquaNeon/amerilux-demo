@@ -92,20 +92,20 @@ export const FINISHES = {
   'poly-clear': {
     ...glass({
       // CMF sheet: clear #FFFFFF, 82% light transmission; its reference photo reads near-neutral, so the
-      // Figma teal is toned down to a faint cool cast
-      color: 0xcde3df, opacity: 0.09, roughness: 0.1, clearcoatRoughness: 0.07,
-      iridescence: 0.35, iridescenceIOR: 1.3, iridescenceThicknessRange: [180, 420],
+      // Figma teal is toned down to a faint cool cast (near-neutral since 2026-10-12: read too blue)
+      color: 0xdbdfde, opacity: 0.09, roughness: 0.1, clearcoatRoughness: 0.07,
+      iridescence: 0.2, iridescenceIOR: 1.3, iridescenceThicknessRange: [180, 420],
     }),
-    edge: [0x3d6b64, 0.75],
+    edge: [0x58615f, 0.75],
   },
   // 5-wall bronze #8A7460, 30% light transmission over five skins
   'poly-bronze': { ...glass({ color: 0x8a7460, opacity: 0.24, roughness: 0.06, clearcoatRoughness: 0.04 }), edge: [0x6b4226, 0.7] },
   'poly-opal': white({ color: 0xf5f5f5, roughness: 0.4, clearcoat: 0.5, clearcoatRoughness: 0.15, envMapIntensity: 1, emissiveIntensity: 0.22 }), // milky, glowing: covers
   // flat sheet and window well cover: 98% light transmission, near water-clear, no frost
-  'poly-flat': { ...glass({ color: 0xdbeeea, opacity: 0.05, roughness: 0.02, clearcoatRoughness: 0.01 }), edge: [0x5a8a82, 0.7] },
-  'acrylic-clear': { ...glass({ color: 0xe6f2f0, ior: 1.49, opacity: 0.05, roughness: 0.015, clearcoatRoughness: 0.01 }), edge: [0x6f9690, 0.7] },
+  'poly-flat': { ...glass({ color: 0xe5e9e8, opacity: 0.05, roughness: 0.02, clearcoatRoughness: 0.01 }), edge: [0x747d7b, 0.7] },
+  'acrylic-clear': { ...glass({ color: 0xecefee, ior: 1.49, opacity: 0.05, roughness: 0.015, clearcoatRoughness: 0.01 }), edge: [0x828b89, 0.7] },
   // multiwall inner ribs
-  'rib-clear': glass({ color: 0xcde3df, opacity: 0.16, roughness: 0.14, clearcoat: 0.4 }),
+  'rib-clear': glass({ color: 0xdbdfde, opacity: 0.16, roughness: 0.14, clearcoat: 0.4 }),
   'rib-bronze': glass({ color: 0x6e5444, opacity: 0.22, roughness: 0.12, clearcoat: 0.4 }),
   'rib-opal': white({ color: 0xf5f5f5, roughness: 0.35 }),
   // PVC. EZ Liner / EZ Forms: Ultra White, matte / satin; Agrilite MR9: Ultra White, gloss

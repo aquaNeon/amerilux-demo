@@ -194,15 +194,15 @@ var k = (e) => ({
 } }), j = {
 	"poly-clear": {
 		...k({
-			color: 13493215,
+			color: 14409694,
 			opacity: .09,
 			roughness: .1,
 			clearcoatRoughness: .07,
-			iridescence: .35,
+			iridescence: .2,
 			iridescenceIOR: 1.3,
 			iridescenceThicknessRange: [180, 420]
 		}),
-		edge: [4025188, .75]
+		edge: [5792095, .75]
 	},
 	"poly-bronze": {
 		...k({
@@ -223,25 +223,25 @@ var k = (e) => ({
 	}),
 	"poly-flat": {
 		...k({
-			color: 14413546,
+			color: 15067624,
 			opacity: .05,
 			roughness: .02,
 			clearcoatRoughness: .01
 		}),
-		edge: [5933698, .7]
+		edge: [7634299, .7]
 	},
 	"acrylic-clear": {
 		...k({
-			color: 15135472,
+			color: 15527918,
 			ior: 1.49,
 			opacity: .05,
 			roughness: .015,
 			clearcoatRoughness: .01
 		}),
-		edge: [7313040, .7]
+		edge: [8555401, .7]
 	},
 	"rib-clear": k({
-		color: 13493215,
+		color: 14409694,
 		opacity: .16,
 		roughness: .14,
 		clearcoat: .4
