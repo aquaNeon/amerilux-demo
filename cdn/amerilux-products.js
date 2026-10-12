@@ -388,7 +388,7 @@ function j() {
 		let a = d(e, n, t);
 		return a.userData.noAO = !0, a.position.set((r - 1) * 7, 0, 0), {
 			object: a,
-			explode: i((r - 1) * -2.5, (r - 1) * 3.5, 0)
+			explode: i((r - 1) * -2.5, (r - 1) * 3.5, (r - 1) * -2.3)
 		};
 	});
 }

@@ -360,7 +360,9 @@ function sidingCladding() {
     const m = mesh(geo, mat, edge);
     m.userData.noAO = true; // AO only: it reads the laps as dark smears; key-light shadows stay, like the other products
     m.position.set((i - 1) * 7, 0, 0);
-    return { object: m, explode: V((i - 1) * -2.5, (i - 1) * 3.5, 0) };
+    // lift each course and slide it back over the one below (x) and along its length (z): the key light
+    // comes in from the front end, so without the z step a lit strip cut through the shadow at the front
+    return { object: m, explode: V((i - 1) * -2.5, (i - 1) * 3.5, (i - 1) * -2.3) };
   });
 }
 
