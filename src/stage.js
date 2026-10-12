@@ -436,7 +436,11 @@ export class Stage {
   }
 
   setExplode(it, e) {
-    for (const l of it.layers) l.object.position.copy(l.home).addScaledVector(l.explode, e);
+    // `arc`: detour that peaks halfway and is gone at both ends, so interlocked parts clear each other on the way
+    for (const l of it.layers) {
+      l.object.position.copy(l.home).addScaledVector(l.explode, e);
+      if (l.arc) l.object.position.addScaledVector(l.arc, Math.sin(Math.PI * e));
+    }
   }
 
   // screen-space extents (px per inch at scale 1) for assembled and exploded states

@@ -86,18 +86,19 @@ function shapeFrom(pts, holes = []) {
 }
 
 // Round every corner of a closed polygon (quadratic fillet) so long edges catch a highlight like a real extrusion.
-// Open polylines (closed = false) keep their end points.
+// Open polylines (closed = false) keep their end points. A third value on a point overrides r for that corner.
 function roundPts(pts, r, seg = 4, closed = true) {
   const n = pts.length, out = [];
   for (let i = 0; i < n; i++) {
     if (!closed && (i === 0 || i === n - 1)) { out.push(pts[i]); continue; }
     const p = pts[i], a = pts[(i - 1 + n) % n], b = pts[(i + 1) % n];
     const v1 = [a[0] - p[0], a[1] - p[1]], v2 = [b[0] - p[0], b[1] - p[1]], l1 = Math.hypot(...v1), l2 = Math.hypot(...v2);
-    if (l1 < 1e-6 || l2 < 1e-6) { out.push(p); continue; }
+    const rr = p[2] ?? r;
+    if (l1 < 1e-6 || l2 < 1e-6 || !rr) { out.push([p[0], p[1]]); continue; }
     const u1 = [v1[0] / l1, v1[1] / l1], u2 = [v2[0] / l2, v2[1] / l2];
     const ang = Math.acos(Math.max(-1, Math.min(1, u1[0] * u2[0] + u1[1] * u2[1])));
-    if (ang > Math.PI - 0.05) { out.push(p); continue; }
-    const t = Math.min(r / Math.tan(ang / 2), l1 * 0.45, l2 * 0.45);
+    if (ang > Math.PI - 0.05) { out.push([p[0], p[1]]); continue; }
+    const t = Math.min(rr / Math.tan(ang / 2), l1 * 0.45, l2 * 0.45);
     const p1 = [p[0] + u1[0] * t, p[1] + u1[1] * t], p2 = [p[0] + u2[0] * t, p[1] + u2[1] * t];
     for (let k = 0; k <= seg; k++) {
       const s = k / seg, q = 1 - s;
@@ -110,7 +111,8 @@ function roundPts(pts, r, seg = 4, closed = true) {
 // Softened extrusion (filleted corners r / hr on holes, bevelled ends) + the crisp one for outlines
 function profile(pts, { holes = [], depth, r = 0, hr = 0, bevel = 0 }) {
   const edge = centered(new THREE.ExtrudeGeometry(shapeFrom(pts, holes), { depth, bevelEnabled: false }));
-  const soft = new THREE.ExtrudeGeometry(shapeFrom(r ? roundPts(pts, r) : pts, holes.map((h) => (hr ? roundPts(h, hr) : h))), {
+  const round = (p, rr) => (rr || p.some((q) => q[2]) ? roundPts(p, rr) : p);
+  const soft = new THREE.ExtrudeGeometry(shapeFrom(round(pts, r), holes.map((h) => round(h, hr))), {
     depth: depth - 2 * bevel, bevelEnabled: bevel > 0, bevelThickness: bevel, bevelSize: bevel * 0.8,
     bevelOffset: -bevel * 0.8, bevelSegments: 3, curveSegments: 8,
   });
@@ -324,22 +326,34 @@ function flatSheets() {
   });
 }
 
-// DuxxBak 1080 board: 7-5/16" overall, 5-3/4" body x 1-1/4", 4 cells, drainage flange under the next board
+// DuxxBak 1080 board, measured off the drawing in `1080-DuxxBak-Board.pdf` (pixel coords of its 1490 px image,
+// scaled by the 5-3/4" and 1-1/4" dimensions). 7-5/16" overall, 3 closed cells. The gutter (base plate + fin) runs
+// under the next board: the right edge is a hook (open slot over the neighbour's fin, leg standing on its base plate,
+// groove taking the tongue), so boards lay at a 5-3/4" pitch with the top faces meeting.
+const DUXX_PITCH = 5.75;
 function duxxbakSection() {
-  const H = 1.25, body = 5.75, flange = 7.3125 - body;
-  const outer = [[0, 0], [flange + body, 0], [flange + body, H], [flange, H], [flange, 0.3], [0.3, 0.3], [0.3, 0.85], [0, 0.85]];
-  const cellW = (body - 0.25 * 5) / 4;
-  const holes = [0, 1, 2, 3].map((i) => rectPts(flange + 0.25 + i * (cellW + 0.25), 0.2, cellW, H - 0.4));
+  const sx = 5.75 / 862, sy = 1.25 / 190;
+  const P = ([x, y, r]) => [(x - 93) * sx, (372 - y) * sy, r * sx];
+  const outer = [
+    [93, 372, 9], [952, 372, 34], [952, 221, 9], [1112, 221, 9], [1112, 333, 9], // base plate, slot over the next fin
+    [1188, 333, 9], [1188, 296, 8], [1152, 296, 8], [1152, 258, 8], [1188, 258, 8], // leg + groove
+    [1188, 228, 4], [1179, 214, 4], [1179, 182, 29], [326, 182, 28], // drip kink, top face
+    [326, 258, 6], [289, 258, 8], [289, 296, 8], [326, 296, 6], // tongue
+    [326, 333, 9], [185, 333, 9], [185, 221, 9], [146, 221, 9], [146, 333, 9], [93, 333, 9], // gutter + fin
+  ].map(P);
+  const holes = [356, 555, 753].map((x) => [[x, 333, 9], [x + 169, 333, 9], [x + 169, 221, 9], [x, 221, 9]].map(P));
   return { outer, holes };
 }
 
 function decking() {
   const { outer, holes } = duxxbakSection();
-  const { geo, edge } = profile(outer, { holes, depth: 26, r: 0.07, hr: 0.04, bevel: 0.02 });
+  const { geo, edge } = profile(outer, { holes, depth: 18, bevel: 0.02 });
   return [0, 1, 2, 3].map((i) => {
     const b = mesh(geo, solidMaterial('deck', 0.8, 'deck'), edge); // own material per board: grain differs
-    b.position.x = (i - 1.5) * 6;
-    return { object: b, explode: V((i - 1.5) * 2.2, (i - 1.5) * 1.6, 0) };
+    b.position.x = (i - 1.5) * DUXX_PITCH;
+    // exploded: same level, spread apart so the gutter + fin under each joint shows. On the way each board rides
+    // higher than the one on its right: the hook has to clear the fin (0.74") before sliding 0.43" over it
+    return { object: b, explode: V((i - 1.5) * 1.6, 0, 0), arc: V(0, (1.5 - i) * 1.1, 0) };
   });
 }
 

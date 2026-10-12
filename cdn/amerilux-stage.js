@@ -901,7 +901,7 @@ var we = class {
 		};
 	}
 	setExplode(e, t) {
-		for (let n of e.layers) n.object.position.copy(n.home).addScaledVector(n.explode, t);
+		for (let n of e.layers) n.object.position.copy(n.home).addScaledVector(n.explode, t), n.arc && n.object.position.addScaledVector(n.arc, Math.sin(Math.PI * t));
 	}
 	measure(e) {
 		let n = new t.Matrix4().makeRotationFromQuaternion(this.ortho.quaternion.clone().invert()), r = new t.Matrix4().makeRotationY(e.def.yaw), i = n.multiply(r), a = new t.Box3(), o = new t.Vector3();
