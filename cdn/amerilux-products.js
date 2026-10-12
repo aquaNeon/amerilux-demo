@@ -516,9 +516,10 @@ function j() {
 		2
 	].map((r) => {
 		let a = d(e, n, t);
-		return a.userData.noAO = !0, a.position.set((r - 1) * 7, 0, 0), {
+		return a.userData.noAO = !0, a.rotation.z = Math.PI / 2, a.position.set(0, (r - 1) * 7, 0), {
 			object: a,
-			explode: i((r - 1) * -2.5, (r - 1) * 3.5, (r - 1) * -2.3)
+			explode: i(0, (r - 1) * 2.6, 0),
+			arc: i(-.9, 0, 0)
 		};
 	});
 }
@@ -614,7 +615,7 @@ var B = {
 	},
 	"siding-cladding": {
 		build: j,
-		yaw: -.62
+		yaw: .85
 	},
 	"specialty-products": {
 		build: z,

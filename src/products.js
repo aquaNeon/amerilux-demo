@@ -373,10 +373,12 @@ function sidingCladding() {
   return [0, 1, 2].map((i) => {
     const m = mesh(geo, mat, edge);
     m.userData.noAO = true; // AO only: it reads the laps as dark smears; key-light shadows stay, like the other products
-    m.position.set((i - 1) * 7, 0, 0);
-    // lift each course and slide it back over the one below (x) and along its length (z): the key light
-    // comes in from the front end, so without the z step a lit strip cut through the shadow at the front
-    return { object: m, explode: V((i - 1) * -2.5, (i - 1) * 3.5, (i - 1) * -2.3) };
+    // standing as a wall: section x (up the course, hook at the bottom) -> world y, face out
+    m.rotation.z = Math.PI / 2; // face (section +y) -> world -x
+    m.position.set(0, (i - 1) * 7, 0);
+    // exploded: each course lifts straight up off the one below, swinging out from the wall on the way so the
+    // hook rides over the lap
+    return { object: m, explode: V(0, (i - 1) * 2.6, 0), arc: V(-0.9, 0, 0) };
   });
 }
 
@@ -469,6 +471,6 @@ export const PRODUCTS = {
   'flat-sheets': { build: flatSheets, yaw: -0.62 },
   'panel-systems': { build: panelSystems, yaw: 0.72, parts: ['16-in-inner', '18-in-inner', '8-in-fem', '8-panel', '4.5-in-spacer', '8-in-male'] },
   'decking-railing': { build: decking, yaw: -0.62 },
-  'siding-cladding': { build: sidingCladding, yaw: -0.62 },
+  'siding-cladding': { build: sidingCladding, yaw: 0.85 },
   'specialty-products': { build: windowWell, yaw: 0.55, parts: ['egress-well', 'well-cover', 'well-cover-rail'] },
 };
