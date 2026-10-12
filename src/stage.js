@@ -14,6 +14,16 @@ import { prepareMaps, realMaterial, setTextureBase, studioEnvironment } from './
 import { StudioPipeline } from './pipeline.js';
 import { SketchPipeline } from './sketch.js';
 
+// Soft shadows: three's PCF takes 5 samples per pixel, grainy at a wide radius; take 16. (VSM blurs
+// depths together, so near a shadow's edge the empty background counts as 'far' and eats a piece of it.)
+const PCF_SAMPLES = 16;
+THREE.ShaderChunk.shadowmap_pars_fragment = THREE.ShaderChunk.shadowmap_pars_fragment.replace(
+  /shadow = \(\s*texture\( shadowMap[\s\S]*?\) \* 0\.2;/,
+  `shadow = 0.0;
+				for ( int i = 0; i < ${PCF_SAMPLES}; i ++ ) shadow += texture( shadowMap, vec3( shadowCoord.xy + vogelDiskSample( i, ${PCF_SAMPLES}, phi ) * radius, shadowCoord.z ) );
+				shadow /= ${PCF_SAMPLES}.0;`,
+);
+
 // Slot layouts, in px of the Figma frame they were measured on (scaled with the stage width).
 //   hero   home "Our products": 1141px-wide left column, larger hero from the client's studio build
 //   strip  product page "Other products to consider": 1384px-wide full-width stage
@@ -177,7 +187,7 @@ export class Stage {
     r.toneMappingExposure = 0.95;
     r.shadowMap.enabled = true;
     r.shadowMap.autoUpdate = false;
-    r.shadowMap.type = THREE.VSMShadowMap; // blurred edges: soft studio shadows where separated parts overlap
+    r.shadowMap.type = THREE.PCFShadowMap; // 16-sample PCF (see PCF_SAMPLES): soft studio shadows
     this.canvas = r.domElement;
     this.canvas.className = 'amx-canvas';
     el.appendChild(this.canvas);
@@ -188,9 +198,9 @@ export class Stage {
     this.key = new THREE.DirectionalLight(0xffffff, 2.2);
     // 2048: at 1024 the edge where a part nearly touches the one below stair-steps (siding laps)
     this.key.shadow.mapSize.set(2048, 2048);
-    this.key.shadow.bias = -0.0003;
-    this.key.shadow.radius = 28; // VSM blur (texels): soft edges, and no stair-stepping as the product sways
-    this.key.shadow.blurSamples = 16;
+    // wide PCF disk: samples reach across a tilted face, so it needs more bias or the face shades itself
+    this.key.shadow.bias = -0.0015;
+    this.key.shadow.radius = 16; // PCF disk radius (texels): soft edges, no stair-stepping as the product sways
     this.shadowFade = 0; // 0 during the active product's entrance, then fades to 1
     this.hemi = new THREE.HemisphereLight(0xffffff, 0x9aa3a2, 0.5);
     this.scene.add(this.key, this.key.target, this.hemi);
@@ -578,11 +588,9 @@ export class Stage {
       // shadow render + blur at 2048 is the next costliest pass; 1024 stair-steps a little where parts
       // nearly touch, but stays soft
       this.key.shadow.mapSize.set(1024, 1024);
-      this.key.shadow.radius = 14;
-      this.key.shadow.blurSamples = 12;
+      this.key.shadow.radius = 10;
       this.key.shadow.map?.dispose();
-      this.key.shadow.mapPass?.dispose();
-      this.key.shadow.map = this.key.shadow.mapPass = null;
+      this.key.shadow.map = null;
     } else if (this.renderer.getPixelRatio() > 1) {
       this.renderer.setPixelRatio(1);
       this.resize();
@@ -671,7 +679,8 @@ export class Stage {
       this.shadowFade = settled ? Math.min(1, this.shadowFade + dt / SHADOW_IN) : 0;
       this.key.shadow.intensity = ease(this.shadowFade);
       // every frame: a shadow map even a frame old makes the swaying product shade itself
-      if (this.shadowFade > 0) this.fitShadow(act);
+      // (and once up front: materials sample the shadow map from their first frame, so it must exist)
+      if (this.shadowFade > 0 || !this.key.shadow.map) this.fitShadow(act);
       this.pipe.render(this.scene, this.persp, { aoRadius: 34 * this.scale, ao: 1.6, time: t });
     } else {
       this.renderer.render(this.scene, this.ortho);
