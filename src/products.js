@@ -480,6 +480,6 @@ export const PRODUCTS = {
   'flat-sheets': { build: flatSheets, yaw: -0.62 },
   'panel-systems': { build: panelSystems, yaw: 0.72, parts: ['16-in-inner', '18-in-inner', '8-in-fem', '8-panel', '4.5-in-spacer', '8-in-male'] },
   'decking-railing': { build: decking, yaw: -0.62 },
-  'siding-cladding': { build: sidingCladding, yaw: 0.85, openYaw: 3.6 - Math.PI * 2 },
+  'siding-cladding': { build: sidingCladding, yaw: 0.85, openYaw: 4.15 - Math.PI * 2 },
   'specialty-products': { build: windowWell, yaw: 0.55, parts: ['egress-well', 'well-cover', 'well-cover-rail'] },
 };
