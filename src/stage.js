@@ -176,6 +176,7 @@ export class Stage {
     r.toneMappingExposure = 0.95;
     r.shadowMap.enabled = true;
     r.shadowMap.autoUpdate = false;
+    r.shadowMap.type = THREE.VSMShadowMap; // blurred edges: soft studio shadows where separated parts overlap
     this.canvas = r.domElement;
     this.canvas.className = 'amx-canvas';
     el.appendChild(this.canvas);
@@ -186,7 +187,8 @@ export class Stage {
     this.key = new THREE.DirectionalLight(0xffffff, 2.2);
     this.key.shadow.mapSize.set(2048, 2048);
     this.key.shadow.bias = -0.0003;
-    this.key.shadow.radius = 3; // PCF softness: hard 1-texel edges stair-step and crawl as the product sways
+    this.key.shadow.radius = 28; // VSM blur: soft edges, and no stair-stepping as the product sways
+    this.key.shadow.blurSamples = 24;
     this.hemi = new THREE.HemisphereLight(0xffffff, 0x9aa3a2, 0.5);
     this.scene.add(this.key, this.key.target, this.hemi);
 

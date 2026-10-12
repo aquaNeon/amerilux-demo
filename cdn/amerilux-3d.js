@@ -29,7 +29,9 @@ var t = class {
 	}
 }, n = new URL("./models/", "" + import.meta.url).href, r = new URL("./textures/", "" + import.meta.url).href, i = "\n:where([data-amx-stage]){position:relative}\n[data-amx-stage]{touch-action:pan-y}\n.amx-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab;outline:none}\n.amx-canvas.is-dragging{cursor:grabbing}\n[data-amx-root][data-amx-style=\"mono\"] [data-amx-thumb]:not([data-amx-gen]){filter:grayscale(1)}", a = (e) => window.requestIdleCallback ? requestIdleCallback(e, { timeout: 500 }) : setTimeout(e, 30), o = (e) => new URL(e, location.href).pathname.replace(/\/+$/, "") || "/";
 function s(e) {
-	let t = (e.dataset.amxExclude || "").split(",").map((e) => e.trim()).filter(Boolean), n = o(location.href);
+	let t = (e.dataset.amxExclude || "").split(",").map((e) => e.trim()).filter(Boolean);
+	for (let e of document.querySelectorAll("[data-amx-current]")) t.push(e.dataset.amxCurrent.trim());
+	let n = o(location.href);
 	for (let r of e.querySelectorAll("[data-amx-item]")) {
 		let e = r.querySelector("a[href]:not([href=\"#\"]):not([href=\"\"])");
 		(t.includes(r.dataset.amxItem) || e && o(e.getAttribute("href")) === n) && c(r);

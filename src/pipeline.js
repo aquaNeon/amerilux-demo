@@ -198,7 +198,7 @@ export class StudioPipeline {
       const hidden = [];
       scene.traverseVisible((o) => {
         const m = Array.isArray(o.material) ? o.material[0] : o.material;
-        if ((m && !m.depthWrite) || o.userData.noShadow) { o.visible = false; hidden.push(o); }
+        if ((m && !m.depthWrite) || o.userData.noShadow || o.userData.noAO) { o.visible = false; hidden.push(o); }
       });
       scene.overrideMaterial = this.depthMat;
       r.setRenderTarget(this.depth);

@@ -204,12 +204,12 @@ function C(e) {
 	]) i + a[0] / 2 < e && n.push(...t(i, ...a));
 	return n.push([e, 0]), g(n, .1, 4, !1);
 }
-function w(e, t, n) {
-	let r = Math.ceil(e / t * 24);
-	return Array.from({ length: r + 1 }, (i, a) => {
-		let o = a / r * e;
-		return [o, n / 2 * (1 - Math.cos(o / t * Math.PI * 2))];
-	});
+function w(e, t, n, r) {
+	let i = t / 2, a = n - 2 * r, o = Math.hypot(i, a), s = Math.atan2(a, i) - Math.acos(2 * r / o), c = r * Math.cos(s), l = (e) => r - Math.sqrt(Math.max(0, r * r - e * e)), u = (e) => n - r + Math.sqrt(Math.max(0, r * r - e * e)), d = (e) => {
+		let n = (e % t + t) % t, r = Math.min(n, t - n);
+		return r <= c ? l(r) : r >= i - c ? u(i - r) : l(c) + (r - c) / (i - 2 * c) * (u(c) - l(c));
+	}, f = Math.ceil(e / t * 48);
+	return Array.from({ length: f + 1 }, (t, n) => [n / f * e, d(n / f * e)]);
 }
 function T() {
 	let e = [
@@ -253,7 +253,7 @@ function T() {
 	});
 }
 function E() {
-	let t = 1.75, r = S(18, 176 * a, 42.5 * a, 25 * a, 116 * a), o = w(18, 67.8 * a, 22.2 * a), s = (e, t, r) => {
+	let t = 1.75, r = S(18, 176 * a, 42.5 * a, 25 * a, 116 * a), o = w(18, 67.8 * a, 22.2 * a, 12.7 * a), s = (e, t, r) => {
 		let i = p(y(e, t), 14);
 		return d(n(i.clone(), .5), r, i);
 	}, c = new e.Group(), f = 2 * a * t / 3, m = [];
@@ -379,18 +379,18 @@ function j() {
 		2
 	].map((r) => {
 		let a = d(e, n, t);
-		return a.userData.noShadow = !0, a.position.set((r - 1) * 7, 0, 0), {
+		return a.userData.noAO = !0, a.position.set((r - 1) * 7, 0, 0), {
 			object: a,
-			explode: i((r - 1) * 2, (r - 1) * 4, 0)
+			explode: i((r - 1) * -2.5, (r - 1) * 3.5, 0)
 		};
 	});
 }
 var M = 50, N = (e, t = .01) => {
 	let n = (n) => n.y < e.min.y + t || n.y > e.max.y - t, r = (n) => n.z < e.min.z + t || n.z > e.max.z - t;
 	return (e, t) => n(e) && n(t) || r(e) && r(t);
-}, P = 14;
-function F(t) {
-	let n = L(t);
+}, P = 14, F = 4;
+function I(t) {
+	let n = R(t);
 	for (let e of n) e.explode.y += 6;
 	let r = {
 		"16-in-inner": 16,
@@ -404,11 +404,11 @@ function F(t) {
 		let s = d(t[e], u("profile", .35, "pvc-white"));
 		s.userData.edgeAngle = M, s.userData.edgeKeep = N(t[e].boundingBox), s.quaternion.copy(o), s.scale.z = P / 6, s.position.set(0, c - 3, l + r[e] / 2), l += r[e], n.push({
 			object: s,
-			explode: i(0, 0, 0)
+			explode: i(0, 0, (a - 1) * F)
 		});
 	}), n;
 }
-function I(t, n, r, a) {
+function L(t, n, r, a) {
 	let o = n.map((n) => t[n].boundingBox.getSize(new e.Vector3())), s = -o.reduce((e, t) => e + t.z, 0) / 2;
 	return n.map((e, c) => {
 		let l = d(t[e], a());
@@ -420,8 +420,8 @@ function I(t, n, r, a) {
 		};
 	});
 }
-function L(e) {
-	return I(e, [
+function R(e) {
+	return L(e, [
 		"8-in-fem",
 		"8-panel",
 		"4.5-in-spacer",
@@ -429,7 +429,7 @@ function L(e) {
 		"8-in-male"
 	], 7, () => u("profile", .38, "pvc-form"));
 }
-function R(t) {
+function z(t) {
 	let n = (e) => (e.rotation.y = Math.PI, e), r = u("well", .4, "steel-galv");
 	r.side = e.DoubleSide;
 	let a = n(d(t["egress-well"], r));
@@ -446,7 +446,7 @@ function R(t) {
 		explode: i(0, 16, 3)
 	}];
 }
-var z = {
+var B = {
 	"multiwall-sheets": {
 		build: T,
 		yaw: -.62
@@ -460,7 +460,7 @@ var z = {
 		yaw: -.62
 	},
 	"panel-systems": {
-		build: F,
+		build: I,
 		yaw: .72,
 		parts: [
 			"16-in-inner",
@@ -480,7 +480,7 @@ var z = {
 		yaw: -.62
 	},
 	"specialty-products": {
-		build: R,
+		build: z,
 		yaw: .55,
 		parts: [
 			"egress-well",
@@ -490,4 +490,4 @@ var z = {
 	}
 };
 //#endregion
-export { z as PRODUCTS, o as TINT, l as polyMaterial, u as solidMaterial };
+export { B as PRODUCTS, o as TINT, l as polyMaterial, u as solidMaterial };

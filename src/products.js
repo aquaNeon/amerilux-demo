@@ -344,9 +344,9 @@ function sidingCladding() {
   const mat = solidMaterial('cladding', 0.6, 'cladding');
   return [0, 1, 2].map((i) => {
     const m = mesh(geo, mat, edge);
-    m.userData.noShadow = true; // no shadows / AO: the boards' laps read as dark smears
+    m.userData.noAO = true; // AO only: it reads the laps as dark smears; key-light shadows stay, like the other products
     m.position.set((i - 1) * 7, 0, 0);
-    return { object: m, explode: V((i - 1) * 2, (i - 1) * 4, 0) };
+    return { object: m, explode: V((i - 1) * -2.5, (i - 1) * 3.5, 0) };
   });
 }
 
@@ -355,8 +355,8 @@ function sidingCladding() {
 
 // Panel Systems (client meeting 2026-10-02): EZ Forms formwork and EZ Liner panels in one view, stacked
 // above each other: the 16" / 18" / 16" EZ Liner panels lie flat at the bottom, interlocked edge to edge
-// along Z, and the formwork wall (stackZ) stands above them; exploding lifts the formwork apart while the
-// liner stays locked together.
+// along Z, and the formwork wall (stackZ) stands above them; exploding lifts the formwork apart and slides
+// the liner panels apart so their interlock shows (client feedback 2026-10-09).
 // Outline crease angle for the EZ parts: their filleted corners are a few facets each just over the
 // default 28 deg, which drew as bundles of near-parallel lines that shimmer while the product sways
 const FILLET_EDGE = 50;
@@ -368,6 +368,7 @@ const shellEdges = (bb, eps = 0.01) => {
   return (a, b) => (outer(a) && outer(b)) || (end(a) && end(b));
 };
 const LINER_L = 14; // shown panel length, inches (exported liner section is 6" long, stretched)
+const LINER_GAP = 4; // exploded gap between liner panels, inches
 function panelSystems(parts) {
   const layers = formwork(parts);
   for (const l of layers) l.explode.y += 6; // formwork lifts clear of the liner
@@ -385,7 +386,7 @@ function panelSystems(parts) {
     m.scale.z = LINER_L / 6;
     m.position.set(0, bottom - 3, z + cover[n] / 2); // cover-width pitch: tongues interlock
     z += cover[n];
-    layers.push({ object: m, explode: V(0, 0, 0) });
+    layers.push({ object: m, explode: V(0, 0, (i - 1) * LINER_GAP) }); // slide apart: shows the tongue + groove
   });
   return layers;
 }
