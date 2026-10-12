@@ -30,6 +30,7 @@ const APPEAR_K = 26, APPEAR_C = 2 * Math.sqrt(APPEAR_K); // entrance spring: cri
 
 const clamp01 = (v) => Math.min(1, Math.max(0, v));
 const ease = (t) => t * t * (3 - 2 * t);
+const SHADOW_IN = 0.45; // s, shadow fade-in once the active product has settled
 const wrap = (v, n) => ((((v + n / 2) % n) + n) % n) - n / 2;
 const edgeCache = new WeakMap();
 const EDGE_ON = new THREE.Color(0x1f2a28);
@@ -185,10 +186,11 @@ export class Stage {
     // environment maps are built on first use of their style (each is a PMREM render)
     this.pmrem = new THREE.PMREMGenerator(r);
     this.key = new THREE.DirectionalLight(0xffffff, 2.2);
-    this.key.shadow.mapSize.set(2048, 2048);
+    this.key.shadow.mapSize.set(1024, 1024); // re-rendered + blurred every frame while the product sways
     this.key.shadow.bias = -0.0003;
-    this.key.shadow.radius = 28; // VSM blur: soft edges, and no stair-stepping as the product sways
-    this.key.shadow.blurSamples = 24;
+    this.key.shadow.radius = 14; // VSM blur (texels): soft edges, and no stair-stepping as the product sways
+    this.key.shadow.blurSamples = 12;
+    this.shadowFade = 0; // 0 while the active product scales / switches in, then fades to 1
     this.hemi = new THREE.HemisphereLight(0xffffff, 0x9aa3a2, 0.5);
     this.scene.add(this.key, this.key.target, this.hemi);
 
@@ -652,7 +654,13 @@ export class Stage {
     if (this.style === 'sketch') {
       this.sketch.render(this.scene, this.ortho, { ...this.sketchLists(), time: t });
     } else if (real) {
-      if (this.items[this.active].built) this.fitShadow(this.items[this.active]);
+      // shadows only once the active product has settled: refitting the shadow while it scales up
+      // flickers, and skipping it saves the shadow render + blur for the whole transition
+      const act = this.items[this.active];
+      const settled = act.built && act.a > 0.995 && act.appear > 0.99 && Math.abs(this.target - this.current) < 0.01;
+      this.shadowFade = settled ? Math.min(1, this.shadowFade + dt / SHADOW_IN) : 0;
+      this.key.shadow.intensity = ease(this.shadowFade);
+      if (this.shadowFade > 0) this.fitShadow(act);
       this.pipe.render(this.scene, this.persp, { aoRadius: 34 * this.scale, ao: 1.6, time: t });
     } else {
       this.renderer.render(this.scene, this.ortho);
@@ -705,7 +713,9 @@ export class Stage {
         this.thumbPipe.fin.uniforms.uBg.value.set(0xededeb);
       }
       this.fitShadow(it);
+      this.key.shadow.intensity = 1; // full shadow whatever the live fade is at
       this.thumbPipe.render(this.scene, cam, { out: rt, grain: 0, bloom: 0, aoRadius: half * 0.05 });
+      this.key.shadow.intensity = ease(this.shadowFade);
     } else {
       rt.texture.colorSpace = THREE.SRGBColorSpace;
       const bg = this.scene.background;

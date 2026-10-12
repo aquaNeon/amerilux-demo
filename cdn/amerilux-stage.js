@@ -159,13 +159,13 @@ function w() {
 		});
 	}));
 }
-var T = { "deck-oak": ["deck-oak", 72] }, E = "/textures/", ee = (e) => {
+var T = { "deck-oak": ["deck-oak", 72] }, E = "/textures/", D = (e) => {
 	E = e;
-}, te = new t.TextureLoader(), D = {};
-function ne(e) {
-	return D[e] ?? (D[e] = (() => {
+}, ee = new t.TextureLoader(), O = {};
+function te(e) {
+	return O[e] ?? (O[e] = (() => {
 		let [n, r] = T[e], i = (e, i) => {
-			let a = [], o = te.load(`${E}${n}_${e}.jpg`, () => a.forEach((e) => {
+			let a = [], o = ee.load(`${E}${n}_${e}.jpg`, () => a.forEach((e) => {
 				e.needsUpdate = !0;
 			}));
 			return o.clones = a, o.wrapS = o.wrapT = t.RepeatWrapping, o.anisotropy = 8, o.colorSpace = i ? t.SRGBColorSpace : t.NoColorSpace, o.repeat.set(1 / r, 1 / r), o;
@@ -177,7 +177,7 @@ function ne(e) {
 		};
 	})());
 }
-var O = (e) => ({
+var k = (e) => ({
 	see: !0,
 	params: {
 		roughness: .03,
@@ -186,14 +186,14 @@ var O = (e) => ({
 		envMapIntensity: 1.25,
 		...e
 	}
-}), k = (e) => ({ params: {
+}), A = (e) => ({ params: {
 	color: 16777215,
 	emissive: 16777215,
 	emissiveIntensity: .14,
 	...e
-} }), A = {
+} }), j = {
 	"poly-clear": {
-		...O({
+		...k({
 			color: 13493215,
 			opacity: .09,
 			roughness: .1,
@@ -205,7 +205,7 @@ var O = (e) => ({
 		edge: [4025188, .75]
 	},
 	"poly-bronze": {
-		...O({
+		...k({
 			color: 9073760,
 			opacity: .24,
 			roughness: .06,
@@ -213,7 +213,7 @@ var O = (e) => ({
 		}),
 		edge: [7029286, .7]
 	},
-	"poly-opal": k({
+	"poly-opal": A({
 		color: 16119285,
 		roughness: .4,
 		clearcoat: .5,
@@ -222,7 +222,7 @@ var O = (e) => ({
 		emissiveIntensity: .22
 	}),
 	"poly-flat": {
-		...O({
+		...k({
 			color: 14413546,
 			opacity: .05,
 			roughness: .02,
@@ -231,7 +231,7 @@ var O = (e) => ({
 		edge: [5933698, .7]
 	},
 	"acrylic-clear": {
-		...O({
+		...k({
 			color: 15135472,
 			ior: 1.49,
 			opacity: .05,
@@ -240,23 +240,23 @@ var O = (e) => ({
 		}),
 		edge: [7313040, .7]
 	},
-	"rib-clear": O({
+	"rib-clear": k({
 		color: 13493215,
 		opacity: .16,
 		roughness: .14,
 		clearcoat: .4
 	}),
-	"rib-bronze": O({
+	"rib-bronze": k({
 		color: 7230532,
 		opacity: .22,
 		roughness: .12,
 		clearcoat: .4
 	}),
-	"rib-opal": k({
+	"rib-opal": A({
 		color: 16119285,
 		roughness: .35
 	}),
-	"pvc-white": k({
+	"pvc-white": A({
 		color: 16382716,
 		emissive: 16317183,
 		emissiveIntensity: .15,
@@ -264,12 +264,12 @@ var O = (e) => ({
 		clearcoat: .12,
 		clearcoatRoughness: .45
 	}),
-	"pvc-form": k({
+	"pvc-form": A({
 		roughness: .5,
 		clearcoat: .1,
 		clearcoatRoughness: .5
 	}),
-	"pvc-gloss": k({
+	"pvc-gloss": A({
 		color: 16382716,
 		emissive: 16317183,
 		emissiveIntensity: .15,
@@ -277,7 +277,7 @@ var O = (e) => ({
 		clearcoat: .8,
 		clearcoatRoughness: .1
 	}),
-	"pvc-klar": k({
+	"pvc-klar": A({
 		color: 16119282,
 		emissive: 16119282,
 		emissiveIntensity: .12,
@@ -342,15 +342,15 @@ var O = (e) => ({
 		maps: "deck-sand"
 	}
 };
-function re(e) {
+function ne(e) {
 	let { u: t, see: n } = this.userData;
 	Object.assign(e.uniforms, t);
 	let r = "uniform float amxSat;\n" + e.fragmentShader;
 	n && (e.vertexShader = "uniform vec4 amxGlow;\nvarying float vAmxEdge;\nvarying vec3 vAmxObj;\n" + e.vertexShader.replace("#include <beginnormal_vertex>", "#include <beginnormal_vertex>\nfloat amxD = abs(dot(objectNormal, amxGlow.xyz));\nvAmxEdge = amxGlow.w > 0.5 ? amxD : (1.0 - amxD) * step(0.5, length(amxGlow.xyz));").replace("#include <begin_vertex>", "#include <begin_vertex>\nvAmxObj = position;"), r = "varying vec3 vAmxObj;\nfloat amxH(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }\nfloat amxVN(vec3 x) {\n  vec3 i = floor(x), f = fract(x);\n  f = f * f * (3.0 - 2.0 * f);\n  return mix(mix(mix(amxH(i), amxH(i + vec3(1, 0, 0)), f.x), mix(amxH(i + vec3(0, 1, 0)), amxH(i + vec3(1, 1, 0)), f.x), f.y),\n             mix(mix(amxH(i + vec3(0, 0, 1)), amxH(i + vec3(1, 0, 1)), f.x), mix(amxH(i + vec3(0, 1, 1)), amxH(i + vec3(1, 1, 1)), f.x), f.y), f.z);\n}\n" + r.replace("#include <roughnessmap_fragment>", "#include <roughnessmap_fragment>\nfloat amxSheen = amxVN(vAmxObj * 0.18) * 0.6 + amxVN(vAmxObj * 0.55 + 4.0) * 0.4;\nroughnessFactor = clamp(roughnessFactor * mix(0.55, 1.9, amxSheen), 0.0, 1.0);").replace("#include <lights_physical_fragment>", "#include <lights_physical_fragment>\n#ifdef USE_CLEARCOAT\nmaterial.clearcoatRoughness = clamp(material.clearcoatRoughness * mix(0.5, 3.0, amxSheen), 0.0, 1.0);\n#endif"), r = "varying float vAmxEdge;\n" + r.replace("#include <opaque_fragment>", "float gNV = max(abs(dot(normal, geometryViewDir)), 0.18);\nfloat gPath = 1.0 / gNV;\nfloat gF = pow(1.0 - gNV, 5.0);\nfloat gEdge = smoothstep(0.55, 0.95, vAmxEdge);\nfloat gA = 1.0 - pow(1.0 - diffuseColor.a, gPath);\ngA = mix(gA, max(gA, 0.88), gEdge);\ngA += (1.0 - gA) * gF * 0.35;\nvec3 gTint = pow(max(diffuseColor.rgb, vec3(0.02)), vec3(gPath));\nvec3 gLit = totalDiffuse + totalEmissiveRadiance;\n// faces: tint x the (light) page behind ~ a colour filter over what's seen through the sheet\nvec3 gBody = mix(gTint * 0.88, gLit * gTint * 1.3 + gTint * 0.12, gEdge);\n// curvature (flutes, ribs, rounded edges) concentrates reflections into bright glints\nfloat gCurv = clamp(length(fwidth(normal)) * 6.0, 0.0, 1.0);\ngA += (1.0 - gA) * gCurv * 0.15;\ngl_FragColor = vec4(gBody * gA + max(outgoingLight - gLit, vec3(0.0)) * (1.0 + gCurv * 1.5), gA);").replace("#include <premultiplied_alpha_fragment>", "")), r = r.replace("#include <tonemapping_fragment>", "#include <tonemapping_fragment>\ngl_FragColor.rgb = mix(vec3(dot(gl_FragColor.rgb, vec3(0.2126, 0.7152, 0.0722))), gl_FragColor.rgb, amxSat);"), e.fragmentShader = r;
 }
-var j = 0;
-function M(e, { glow: n } = {}) {
-	let r = A[e] || A["pvc-white"], i = new t.MeshPhysicalMaterial({
+var re = 0;
+function ie(e, { glow: n } = {}) {
+	let r = j[e] || j["pvc-white"], i = new t.MeshPhysicalMaterial({
 		metalness: 0,
 		ior: 1.585,
 		specularIntensity: 1,
@@ -362,7 +362,7 @@ function M(e, { glow: n } = {}) {
 		side: t.DoubleSide,
 		premultipliedAlpha: !0
 	}), r.maps || r.photo) {
-		let e = r.photo ? ne(r.photo) : S(r.maps), t = j++, n = (e) => {
+		let e = r.photo ? te(r.photo) : S(r.maps), t = re++, n = (e) => {
 			let n = e.clone();
 			return n.offset.set(t * .37 % 1, t * .61 % 1), e.clones?.push(n), n;
 		};
@@ -393,9 +393,9 @@ function M(e, { glow: n } = {}) {
 		u: a,
 		see: !!r.see,
 		edge: r.edge
-	}, i.onBeforeCompile = re, i.customProgramCacheKey = () => r.see ? "amx-see" : "amx-solid", i;
+	}, i.onBeforeCompile = ne, i.customProgramCacheKey = () => r.see ? "amx-see" : "amx-solid", i;
 }
-function ie() {
+function M() {
 	let e = document.createElement("canvas");
 	e.width = e.height = 256;
 	let n = e.getContext("2d");
@@ -406,7 +406,7 @@ function ie() {
 	return i.colorSpace = t.SRGBColorSpace, i;
 }
 function ae(e) {
-	let n = new t.Scene(), r = ie();
+	let n = new t.Scene(), r = M();
 	n.add(new t.Mesh(new t.BoxGeometry(44, 26, 44), new t.MeshBasicMaterial({
 		color: new t.Color(.068, .075, .088),
 		side: t.BackSide
@@ -449,7 +449,7 @@ function ae(e) {
 }
 //#endregion
 //#region src/pipeline.js
-var oe = "varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }", se = "\nuniform sampler2D t;\nuniform vec2 dir;\nvarying vec2 vUv;\nvoid main() {\n  vec4 s = texture2D(t, vUv) * 0.2270270270;\n  s += texture2D(t, vUv + dir * 1.3846153846) * 0.3162162162;\n  s += texture2D(t, vUv - dir * 1.3846153846) * 0.3162162162;\n  s += texture2D(t, vUv + dir * 3.2307692308) * 0.0702702703;\n  s += texture2D(t, vUv - dir * 3.2307692308) * 0.0702702703;\n  gl_FragColor = s;\n}", ce = "\nuniform sampler2D t;\nvarying vec2 vUv;\nvoid main() {\n  vec3 c = texture2D(t, vUv).rgb;\n  float pk = max(c.r, max(c.g, c.b));\n  gl_FragColor = vec4(c * smoothstep(0.95, 1.6, pk), 1.0);\n}", le = "\nuniform sampler2D tDepth;\nuniform mat4 uProj, uInvProj;\nuniform vec2 uRes;\nuniform float uRadius, uIntensity;\nvarying vec2 vUv;\nvec3 viewPos(vec2 uv) {\n  vec4 p = uInvProj * vec4(vec3(uv, texture2D(tDepth, uv).r) * 2.0 - 1.0, 1.0);\n  return p.xyz / p.w;\n}\nfloat hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }\nvoid main() {\n  float d = texture2D(tDepth, vUv).r;\n  if (d >= 1.0) { gl_FragColor = vec4(1.0); return; }\n  vec3 P = viewPos(vUv);\n  vec3 N = normalize(cross(dFdx(P), dFdy(P)));\n  if (dot(N, P) > 0.0) N = -N;\n  float R2 = uRadius * uRadius;\n  float rpx = uRadius * uProj[1][1] * 0.5 * uRes.y / (uProj[3][3] > 0.5 ? 1.0 : -P.z); // radius in pixels (ortho / perspective)\n  float spin = hash(gl_FragCoord.xy) * 6.2831853;\n  float A = 0.0;\n  const int S = 12;\n  for (int i = 0; i < S; i++) {\n    float f = (float(i) + 0.5) / float(S);\n    float ang = f * 6.2831853 * 3.0 + spin;\n    vec3 v = viewPos(vUv + vec2(cos(ang), sin(ang)) * f * rpx / uRes) - P;\n    float vv = dot(v, v);\n    A += max(0.0, dot(v, N) / (sqrt(vv) + 1e-3) - 0.08) * max(0.0, 1.0 - vv / R2);\n  }\n  gl_FragColor = vec4(vec3(clamp(1.0 - uIntensity * A / float(S) * 2.0, 0.0, 1.0)), 1.0);\n}", ue = "\nuniform sampler2D t, tDepth;\nuniform vec2 dir;\nuniform float uNear, uFar, uOrtho;\nvarying vec2 vUv;\nfloat lin(float d) { return uOrtho > 0.5 ? uNear + d * (uFar - uNear) : uNear * uFar / (uFar - d * (uFar - uNear)); }\nvoid main() {\n  float z0 = lin(texture2D(tDepth, vUv).r);\n  float sum = 0.0, wsum = 0.0;\n  for (int i = -3; i <= 3; i++) {\n    vec2 uv = vUv + dir * float(i);\n    float w = exp(-float(i * i) / 8.0) * exp(-abs(lin(texture2D(tDepth, uv).r) - z0) * 0.08);\n    sum += texture2D(t, uv).r * w;\n    wsum += w;\n  }\n  gl_FragColor = vec4(vec3(sum / wsum), 1.0);\n}", de = "\nuniform sampler2D t, tAO, tBloom;\nuniform float uTime, uGrain, uBloom;\nuniform vec2 uRes;\nuniform vec3 uBg;\nvarying vec2 vUv;\n// Khronos PBR Neutral\nvec3 neutral(vec3 c) {\n  const float sc = 0.76, ds = 0.15;\n  float x = min(c.r, min(c.g, c.b));\n  float off = x < 0.08 ? x - 6.25 * x * x : 0.04;\n  c -= off;\n  float pk = max(c.r, max(c.g, c.b));\n  if (pk < sc) return c;\n  const float d = 1.0 - sc;\n  float np = 1.0 - d * d / (pk + d - sc);\n  c *= np / pk;\n  float g = 1.0 - 1.0 / (ds * (pk - np) + 1.0);\n  return mix(c, vec3(np), g);\n}\nvec3 srgb(vec3 c) { return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c)); }\nfloat h(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233)) + uTime * 17.0) * 43758.5453); }\nvoid main() {\n  vec4 s = texture2D(t, vUv);\n  float a = clamp(s.a, 0.0, 1.0);\n  vec3 bloom = texture2D(tBloom, vUv).rgb * uBloom;\n  vec3 c = clamp(neutral(s.rgb * texture2D(tAO, vUv).r * 1.02 + bloom), 0.0, 1.0) + uBg * (1.0 - a);\n  c = srgb(clamp(c, 0.0, 1.0));\n  c += (h(floor(vUv * uRes)) - 0.5) * uGrain * a;\n  gl_FragColor = vec4(c, 1.0);\n}", N = class {
+var oe = "varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }", N = "\nuniform sampler2D t;\nuniform vec2 dir;\nvarying vec2 vUv;\nvoid main() {\n  vec4 s = texture2D(t, vUv) * 0.2270270270;\n  s += texture2D(t, vUv + dir * 1.3846153846) * 0.3162162162;\n  s += texture2D(t, vUv - dir * 1.3846153846) * 0.3162162162;\n  s += texture2D(t, vUv + dir * 3.2307692308) * 0.0702702703;\n  s += texture2D(t, vUv - dir * 3.2307692308) * 0.0702702703;\n  gl_FragColor = s;\n}", se = "\nuniform sampler2D t;\nvarying vec2 vUv;\nvoid main() {\n  vec3 c = texture2D(t, vUv).rgb;\n  float pk = max(c.r, max(c.g, c.b));\n  gl_FragColor = vec4(c * smoothstep(0.95, 1.6, pk), 1.0);\n}", ce = "\nuniform sampler2D tDepth;\nuniform mat4 uProj, uInvProj;\nuniform vec2 uRes;\nuniform float uRadius, uIntensity;\nvarying vec2 vUv;\nvec3 viewPos(vec2 uv) {\n  vec4 p = uInvProj * vec4(vec3(uv, texture2D(tDepth, uv).r) * 2.0 - 1.0, 1.0);\n  return p.xyz / p.w;\n}\nfloat hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }\nvoid main() {\n  float d = texture2D(tDepth, vUv).r;\n  if (d >= 1.0) { gl_FragColor = vec4(1.0); return; }\n  vec3 P = viewPos(vUv);\n  vec3 N = normalize(cross(dFdx(P), dFdy(P)));\n  if (dot(N, P) > 0.0) N = -N;\n  float R2 = uRadius * uRadius;\n  float rpx = uRadius * uProj[1][1] * 0.5 * uRes.y / (uProj[3][3] > 0.5 ? 1.0 : -P.z); // radius in pixels (ortho / perspective)\n  float spin = hash(gl_FragCoord.xy) * 6.2831853;\n  float A = 0.0;\n  const int S = 12;\n  for (int i = 0; i < S; i++) {\n    float f = (float(i) + 0.5) / float(S);\n    float ang = f * 6.2831853 * 3.0 + spin;\n    vec3 v = viewPos(vUv + vec2(cos(ang), sin(ang)) * f * rpx / uRes) - P;\n    float vv = dot(v, v);\n    A += max(0.0, dot(v, N) / (sqrt(vv) + 1e-3) - 0.08) * max(0.0, 1.0 - vv / R2);\n  }\n  gl_FragColor = vec4(vec3(clamp(1.0 - uIntensity * A / float(S) * 2.0, 0.0, 1.0)), 1.0);\n}", le = "\nuniform sampler2D t, tDepth;\nuniform vec2 dir;\nuniform float uNear, uFar, uOrtho;\nvarying vec2 vUv;\nfloat lin(float d) { return uOrtho > 0.5 ? uNear + d * (uFar - uNear) : uNear * uFar / (uFar - d * (uFar - uNear)); }\nvoid main() {\n  float z0 = lin(texture2D(tDepth, vUv).r);\n  float sum = 0.0, wsum = 0.0;\n  for (int i = -3; i <= 3; i++) {\n    vec2 uv = vUv + dir * float(i);\n    float w = exp(-float(i * i) / 8.0) * exp(-abs(lin(texture2D(tDepth, uv).r) - z0) * 0.08);\n    sum += texture2D(t, uv).r * w;\n    wsum += w;\n  }\n  gl_FragColor = vec4(vec3(sum / wsum), 1.0);\n}", ue = "\nuniform sampler2D t, tAO, tBloom;\nuniform float uTime, uGrain, uBloom;\nuniform vec2 uRes;\nuniform vec3 uBg;\nvarying vec2 vUv;\n// Khronos PBR Neutral\nvec3 neutral(vec3 c) {\n  const float sc = 0.76, ds = 0.15;\n  float x = min(c.r, min(c.g, c.b));\n  float off = x < 0.08 ? x - 6.25 * x * x : 0.04;\n  c -= off;\n  float pk = max(c.r, max(c.g, c.b));\n  if (pk < sc) return c;\n  const float d = 1.0 - sc;\n  float np = 1.0 - d * d / (pk + d - sc);\n  c *= np / pk;\n  float g = 1.0 - 1.0 / (ds * (pk - np) + 1.0);\n  return mix(c, vec3(np), g);\n}\nvec3 srgb(vec3 c) { return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c)); }\nfloat h(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233)) + uTime * 17.0) * 43758.5453); }\nvoid main() {\n  vec4 s = texture2D(t, vUv);\n  float a = clamp(s.a, 0.0, 1.0);\n  vec3 bloom = texture2D(tBloom, vUv).rgb * uBloom;\n  vec3 c = clamp(neutral(s.rgb * texture2D(tAO, vUv).r * 1.02 + bloom), 0.0, 1.0) + uBg * (1.0 - a);\n  c = srgb(clamp(c, 0.0, 1.0));\n  c += (h(floor(vUv * uRes)) - 0.5) * uGrain * a;\n  gl_FragColor = vec4(c, 1.0);\n}", P = class {
 	constructor(e) {
 		this.r = e, this.ss = 1.5;
 		let n = { type: t.HalfFloatType };
@@ -483,24 +483,24 @@ var oe = "varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.
 			depthWrite: !1,
 			toneMapped: !1
 		}), a = this.depth.depthTexture;
-		this.blur = i(se, {
+		this.blur = i(N, {
 			t: { value: null },
 			dir: { value: new t.Vector2() }
-		}), this.bright = i(ce, { t: { value: this.main.texture } }), this.ao = i(le, {
+		}), this.bright = i(se, { t: { value: this.main.texture } }), this.ao = i(ce, {
 			tDepth: { value: a },
 			uProj: { value: new t.Matrix4() },
 			uInvProj: { value: new t.Matrix4() },
 			uRes: { value: new t.Vector2(1, 1) },
 			uRadius: { value: 16 },
 			uIntensity: { value: 1 }
-		}), this.aoBlur = i(ue, {
+		}), this.aoBlur = i(le, {
 			t: { value: null },
 			tDepth: { value: a },
 			dir: { value: new t.Vector2() },
 			uNear: { value: 1 },
 			uFar: { value: 2 },
 			uOrtho: { value: 0 }
-		}), this.fin = i(de, {
+		}), this.fin = i(ue, {
 			t: { value: this.main.texture },
 			tAO: { value: this.white },
 			tBloom: { value: this.black },
@@ -549,7 +549,7 @@ var oe = "varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.
 		} else u.tAO.value = this.white;
 		i > 0 ? (this.pass(this.bright, this.b1), this.blurPass(this.b1.texture, this.b2, this.b1, 2), u.tBloom.value = this.blurPass(this.b1.texture, this.b2, this.b1, 4)) : u.tBloom.value = this.black, u.uBloom.value = i, u.uGrain.value = a, u.uTime.value = o % 100, this.pass(this.fin, s), c.autoClear = l;
 	}
-}, P = "varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }", fe = "\nvarying vec3 vView;\nvoid main() {\n  vec4 mv = modelViewMatrix * vec4(position, 1.0);\n  vView = mv.xyz;\n  gl_Position = projectionMatrix * mv;\n}", F = "\nuniform float uWeight;\nvarying vec3 vView;\nvoid main() {\n  vec3 n = normalize(cross(dFdx(vView), dFdy(vView)));\n  float lam = 0.38 + 0.62 * max(dot(n, normalize(vec3(-0.6, 0.65, 0.5))), 0.0);\n  gl_FragColor = vec4(lam, n.xy * 0.5 + 0.5, uWeight);\n}", I = "uniform float uWeight; void main() { gl_FragColor = vec4(-1.0, 0.5, 0.5, uWeight); }", L = "\nuniform sampler2D tData, tDepth;\nuniform vec2 uRes;      // target pixels\nuniform float uPx;      // target pixels per CSS px\nuniform float uNear, uFar, uOrtho;\nuniform vec3 uBg, uInk, uPaper;\nvarying vec2 vUv;\n\nfloat depthL(vec2 uv) {\n  float d = texture2D(tDepth, uv).r;\n  return uOrtho > 0.5 ? uNear + d * (uFar - uNear) : uNear * uFar / (uFar - d * (uFar - uNear));\n}\n// nearest depth over a pixel and its 4 neighbours: closes 1 px pinholes in imported meshes, which\n// would otherwise each draw a dot (ortho: larger = farther)\nfloat depthC(vec2 uv) {\n  vec2 p = 1.0 / uRes;\n  return min(min(min(depthL(uv), depthL(uv + vec2(p.x, 0.0))), min(depthL(uv - vec2(p.x, 0.0)), depthL(uv + vec2(0.0, p.y)))), depthL(uv - vec2(0.0, p.y)));\n}\n// outline strength around uv: drawn lines (pass B) thickened, plus silhouettes from depth breaks.\n// Breaks are second differences: a sloped face (linear depth) gives none, so the threshold can sit\n// low enough to keep small steps continuous (one corrugation rib passing in front of the next).\n// (No normal-break edges: on curved, tessellated parts they double the feature lines.)\nfloat stroke(vec2 uv) {\n  vec2 o = 0.6 * uPx / uRes;\n  float line = 0.0, hits = 0.0;\n  // 3x3 pixel neighbourhood: thickens the 1 px line, and counts how many pixels it covers\n  vec2 px1 = 1.0 / uRes;\n  for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {\n    vec2 q = uv + vec2(float(x), float(y)) * px1;\n    vec4 s = texture2D(tData, q);\n    // skip line pixels seen through a 1 px crack in a nearer face (their depth is well behind the\n    // pixels around them): hidden outlines would leak through as dots\n    if (s.r < -0.5 && depthL(q) - depthC(q) < 3.0) { line = max(line, s.a * (x == 0 && y == 0 ? 1.0 : 0.45)); hits += 1.0; }\n  }\n  line *= step(1.5, hits); // a real line covers neighbouring pixels (incl. diagonal); lone pixels are depth noise\n  float z2 = 2.0 * depthC(uv);\n  vec2 dx = vec2(o.x * 1.3, 0.0), dy = vec2(0.0, o.y * 1.3);\n  float dz = max(abs(depthC(uv + dx) + depthC(uv - dx) - z2), abs(depthC(uv + dy) + depthC(uv - dy) - z2));\n  float w = max(texture2D(tData, uv).a, 0.25);\n  return max(line, smoothstep(2.5, 6.0, dz) * w);\n}\nvoid main() {\n  float ink = stroke(vUv);\n\n  // solid faces: plain paper fill\n  vec4 c = texture2D(tData, vUv);\n  float solid = (c.r > -0.5 && texture2D(tDepth, vUv).r < 1.0) ? 1.0 : 0.0;\n\n  vec3 col = mix(uBg, uPaper, solid * mix(0.35, 0.8, c.a));\n  col = mix(col, uInk, clamp(ink, 0.0, 1.0) * 0.85);\n  gl_FragColor = vec4(col, 1.0);\n}", R = "\nuniform sampler2D t;\nuniform vec2 uStep; // a quarter of an output pixel, in uv\nvarying vec2 vUv;\nvoid main() {\n  gl_FragColor = 0.25 * (texture2D(t, vUv + vec2(-uStep.x, -uStep.y)) + texture2D(t, vUv + vec2(uStep.x, -uStep.y))\n    + texture2D(t, vUv + vec2(-uStep.x, uStep.y)) + texture2D(t, vUv + vec2(uStep.x, uStep.y)));\n}", z = class {
+}, F = "varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }", de = "\nvarying vec3 vView;\nvoid main() {\n  vec4 mv = modelViewMatrix * vec4(position, 1.0);\n  vView = mv.xyz;\n  gl_Position = projectionMatrix * mv;\n}", fe = "\nuniform float uWeight;\nvarying vec3 vView;\nvoid main() {\n  vec3 n = normalize(cross(dFdx(vView), dFdy(vView)));\n  float lam = 0.38 + 0.62 * max(dot(n, normalize(vec3(-0.6, 0.65, 0.5))), 0.0);\n  gl_FragColor = vec4(lam, n.xy * 0.5 + 0.5, uWeight);\n}", I = "uniform float uWeight; void main() { gl_FragColor = vec4(-1.0, 0.5, 0.5, uWeight); }", L = "\nuniform sampler2D tData, tDepth;\nuniform vec2 uRes;      // target pixels\nuniform float uPx;      // target pixels per CSS px\nuniform float uNear, uFar, uOrtho;\nuniform vec3 uBg, uInk, uPaper;\nvarying vec2 vUv;\n\nfloat depthL(vec2 uv) {\n  float d = texture2D(tDepth, uv).r;\n  return uOrtho > 0.5 ? uNear + d * (uFar - uNear) : uNear * uFar / (uFar - d * (uFar - uNear));\n}\n// nearest depth over a pixel and its 4 neighbours: closes 1 px pinholes in imported meshes, which\n// would otherwise each draw a dot (ortho: larger = farther)\nfloat depthC(vec2 uv) {\n  vec2 p = 1.0 / uRes;\n  return min(min(min(depthL(uv), depthL(uv + vec2(p.x, 0.0))), min(depthL(uv - vec2(p.x, 0.0)), depthL(uv + vec2(0.0, p.y)))), depthL(uv - vec2(0.0, p.y)));\n}\n// outline strength around uv: drawn lines (pass B) thickened, plus silhouettes from depth breaks.\n// Breaks are second differences: a sloped face (linear depth) gives none, so the threshold can sit\n// low enough to keep small steps continuous (one corrugation rib passing in front of the next).\n// (No normal-break edges: on curved, tessellated parts they double the feature lines.)\nfloat stroke(vec2 uv) {\n  vec2 o = 0.6 * uPx / uRes;\n  float line = 0.0, hits = 0.0;\n  // 3x3 pixel neighbourhood: thickens the 1 px line, and counts how many pixels it covers\n  vec2 px1 = 1.0 / uRes;\n  for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {\n    vec2 q = uv + vec2(float(x), float(y)) * px1;\n    vec4 s = texture2D(tData, q);\n    // skip line pixels seen through a 1 px crack in a nearer face (their depth is well behind the\n    // pixels around them): hidden outlines would leak through as dots\n    if (s.r < -0.5 && depthL(q) - depthC(q) < 3.0) { line = max(line, s.a * (x == 0 && y == 0 ? 1.0 : 0.45)); hits += 1.0; }\n  }\n  line *= step(1.5, hits); // a real line covers neighbouring pixels (incl. diagonal); lone pixels are depth noise\n  float z2 = 2.0 * depthC(uv);\n  vec2 dx = vec2(o.x * 1.3, 0.0), dy = vec2(0.0, o.y * 1.3);\n  float dz = max(abs(depthC(uv + dx) + depthC(uv - dx) - z2), abs(depthC(uv + dy) + depthC(uv - dy) - z2));\n  float w = max(texture2D(tData, uv).a, 0.25);\n  return max(line, smoothstep(2.5, 6.0, dz) * w);\n}\nvoid main() {\n  float ink = stroke(vUv);\n\n  // solid faces: plain paper fill\n  vec4 c = texture2D(tData, vUv);\n  float solid = (c.r > -0.5 && texture2D(tDepth, vUv).r < 1.0) ? 1.0 : 0.0;\n\n  vec3 col = mix(uBg, uPaper, solid * mix(0.35, 0.8, c.a));\n  col = mix(col, uInk, clamp(ink, 0.0, 1.0) * 0.85);\n  gl_FragColor = vec4(col, 1.0);\n}", R = "\nuniform sampler2D t;\nuniform vec2 uStep; // a quarter of an output pixel, in uv\nvarying vec2 vUv;\nvoid main() {\n  gl_FragColor = 0.25 * (texture2D(t, vUv + vec2(-uStep.x, -uStep.y)) + texture2D(t, vUv + vec2(uStep.x, -uStep.y))\n    + texture2D(t, vUv + vec2(-uStep.x, uStep.y)) + texture2D(t, vUv + vec2(uStep.x, uStep.y)));\n}", z = class {
 	constructor(e) {
 		this.r = e, this.target = new t.WebGLRenderTarget(1, 1, {
 			type: t.HalfFloatType,
@@ -557,8 +557,8 @@ var oe = "varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.
 			magFilter: t.NearestFilter,
 			depthTexture: new t.DepthTexture(1, 1, t.FloatType)
 		}), this.meshMat = new t.ShaderMaterial({
-			vertexShader: fe,
-			fragmentShader: F,
+			vertexShader: de,
+			fragmentShader: fe,
 			uniforms: { uWeight: { value: 1 } },
 			side: t.DoubleSide
 		}), this.lineMat = new t.ShaderMaterial({
@@ -567,7 +567,7 @@ var oe = "varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.
 			uniforms: { uWeight: { value: 1 } },
 			depthWrite: !1
 		}), this.drawn = new t.WebGLRenderTarget(1, 1, { depthBuffer: !1 }), this.post = new t.ShaderMaterial({
-			vertexShader: P,
+			vertexShader: F,
 			fragmentShader: L,
 			depthTest: !1,
 			depthWrite: !1,
@@ -585,7 +585,7 @@ var oe = "varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.
 				uPaper: { value: new t.Color(16579834) }
 			}
 		}), this.down = new t.ShaderMaterial({
-			vertexShader: P,
+			vertexShader: F,
 			fragmentShader: R,
 			depthTest: !1,
 			depthWrite: !1,
@@ -664,10 +664,10 @@ var oe = "varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.
 		centerX: .5,
 		centerY: .47
 	}
-}, V = t.MathUtils.degToRad(34), H = 18, pe = new t.Vector3(-.42, .82, .38).normalize(), me = .14, U = 26, he = 2 * Math.sqrt(U), W = (e) => Math.min(1, Math.max(0, e)), G = (e) => e * e * (3 - 2 * e), K = (e, t) => ((e + t / 2) % t + t) % t - t / 2, q = /* @__PURE__ */ new WeakMap(), J = new t.Color(2042408), ge = new t.Color(7039851), Y = (e) => .2126 * e.r + .7152 * e.g + .0722 * e.b, X = (e) => {
-	let n = Y(e);
+}, V = t.MathUtils.degToRad(34), H = 18, U = new t.Vector3(-.42, .82, .38).normalize(), pe = .14, W = 26, me = 2 * Math.sqrt(W), G = (e) => Math.min(1, Math.max(0, e)), K = (e) => e * e * (3 - 2 * e), he = .45, q = (e, t) => ((e + t / 2) % t + t) % t - t / 2, J = /* @__PURE__ */ new WeakMap(), Y = new t.Color(2042408), ge = new t.Color(7039851), X = (e) => .2126 * e.r + .7152 * e.g + .0722 * e.b, Z = (e) => {
+	let n = X(e);
 	return new t.Color(n, n, n);
-}, Z = () => new Promise((e) => window.requestIdleCallback ? requestIdleCallback(() => e(), { timeout: 200 }) : setTimeout(e, 16));
+}, Q = () => new Promise((e) => window.requestIdleCallback ? requestIdleCallback(() => e(), { timeout: 200 }) : setTimeout(e, 16));
 function _e(e) {
 	let n = e.geometry, r = new t.BufferGeometry();
 	for (let e of ["position", "normal"]) {
@@ -679,17 +679,17 @@ function _e(e) {
 	}
 	return n.index && r.setIndex(n.index), r.applyMatrix4(e.matrixWorld), r.getAttribute("normal") || r.computeVertexNormals(), r.computeBoundingBox(), r.userData.quantized = !0, r;
 }
-function Q(e, n = .03) {
+function ve(e, n = .03) {
 	let r = e.getAttribute("position").array, i = [];
 	for (let e = 0; e < r.length; e += 6) if (Math.hypot(r[e + 3] - r[e], r[e + 4] - r[e + 1], r[e + 5] - r[e + 2]) >= n) for (let t = 0; t < 6; t++) i.push(r[e + t]);
 	return e.setAttribute("position", new t.Float32BufferAttribute(i, 3)), e;
 }
-function ve(e, n) {
+function ye(e, n) {
 	let r = e.getAttribute("position").array, i = [], a = new t.Vector3(), o = new t.Vector3();
 	for (let e = 0; e < r.length; e += 6) if (a.fromArray(r, e), o.fromArray(r, e + 3), n(a, o)) for (let t = 0; t < 6; t++) i.push(r[e + t]);
 	return e.setAttribute("position", new t.Float32BufferAttribute(i, 3)), e;
 }
-function ye(e, n = 28, r = .006) {
+function be(e, n = 28, r = .006) {
 	let i = e.getAttribute("position"), a = e.index ? e.index.array : null, o = a ? a.length : i.count, s = Math.cos(t.MathUtils.degToRad(n)), c = new t.Vector3(), l = new t.Vector3(), u = new t.Vector3(), d = new t.Vector3(), f = new t.Vector3(), p = new t.Vector3(), m = (e) => `${Math.round(e.x * 1e4)},${Math.round(e.y * 1e4)},${Math.round(e.z * 1e4)}`, h = /* @__PURE__ */ new Map();
 	for (let e = 0; e < o; e += 3) {
 		let t = [
@@ -724,7 +724,7 @@ function ye(e, n = 28, r = .006) {
 	for (let e of h.values()) (e.faces === 1 ? !e.sliver : e.keep) && g.push(e.p0.x, e.p0.y, e.p0.z, e.p1.x, e.p1.y, e.p1.z);
 	return new t.BufferGeometry().setAttribute("position", new t.Float32BufferAttribute(g, 3));
 }
-function be(e) {
+function xe(e) {
 	for (let n = e; n; n = n.parentElement) {
 		let e = getComputedStyle(n).backgroundColor.match(/[\d.]+/g);
 		if (e && (e[3] === void 0 || +e[3] > .5)) return new t.Color(`rgb(${e[0]}, ${e[1]}, ${e[2]})`);
@@ -735,19 +735,19 @@ function $(e, t, n, r, i) {
 	let a = i.uniforms?.uWeight;
 	a && (a.value = (this.userData.item?.a ?? 1) * (this.userData.sketchWeight ?? 1), i.uniformsNeedUpdate = !0);
 }
-function xe(e, n) {
+function Se(e, n) {
 	let r = Math.abs(n), i = Math.min(Math.floor(r), e.length - 2), a = t.MathUtils.lerp(e[i], e[i + 1], r - i);
 	return Math.sign(n) * a;
 }
-var Se = class {
+var Ce = class {
 	constructor(e, { slugs: n, modelBase: r, textureBase: i, layout: a = "hero", centerX: o, centerY: s, onChange: c, onBuilt: l }) {
-		this.el = e, this.slugs = n, this.modelBase = r, i && ee(i), this.layout = B[a] || B.hero, this.centerX = o ?? this.layout.centerX, this.centerY = s ?? this.layout.centerY, this.onChange = c, this.onBuilt = l, this.style = "color", this.reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+		this.el = e, this.slugs = n, this.modelBase = r, i && D(i), this.layout = B[a] || B.hero, this.centerX = o ?? this.layout.centerX, this.centerY = s ?? this.layout.centerY, this.onChange = c, this.onBuilt = l, this.style = "color", this.reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 		let u = this.renderer = new t.WebGLRenderer({
 			antialias: !0,
 			alpha: !0,
 			powerPreference: "high-performance"
 		});
-		u.setPixelRatio(Math.min(devicePixelRatio, 2)), u.debug.checkShaderErrors = !1, u.toneMapping = t.NeutralToneMapping, u.toneMappingExposure = .95, u.shadowMap.enabled = !0, u.shadowMap.autoUpdate = !1, u.shadowMap.type = t.VSMShadowMap, this.canvas = u.domElement, this.canvas.className = "amx-canvas", e.appendChild(this.canvas), this.scene = new t.Scene(), this.pmrem = new t.PMREMGenerator(u), this.key = new t.DirectionalLight(16777215, 2.2), this.key.shadow.mapSize.set(2048, 2048), this.key.shadow.bias = -3e-4, this.key.shadow.radius = 28, this.key.shadow.blurSamples = 24, this.hemi = new t.HemisphereLight(16777215, 10134434, .5), this.scene.add(this.key, this.key.target, this.hemi), this.bg = be(e), this.pipe = new N(u), this.pipe.fin.uniforms.uBg.value.copy(this.bg), this.sketch = new z(u), this.sketch.setBackground(this.bg), this.ortho = new t.OrthographicCamera(), this.ortho.position.set(0, Math.sin(V), Math.cos(V)).multiplyScalar(2e3), this.ortho.lookAt(0, 0, 0), this.ortho.near = 1e3, this.ortho.far = 3e3, this.persp = new t.PerspectiveCamera(H, 1, 10, 4e4), this.items = n.map((e, t) => this.createItem(e, t)), this.current = 0, this.target = 0, this.active = 0, this.pointer = new t.Vector2(0, 0), this.follow = new t.Vector2(0, 0), this.followVel = new t.Vector2(0, 0), this.timer = new t.Timer(), this.raycaster = new t.Raycaster(), this._box = new t.Box3(), this._v = new t.Vector3(), this.frames = 0, this.resize(), new ResizeObserver(() => this.resize()).observe(e), this.bindPointer(), this.bindVisibility(), this.applyStyle(), this.ready = this.load(), this.loaded = this.ready.then(() => this.rest), u.setAnimationLoop(() => this.tick());
+		u.setPixelRatio(Math.min(devicePixelRatio, 2)), u.debug.checkShaderErrors = !1, u.toneMapping = t.NeutralToneMapping, u.toneMappingExposure = .95, u.shadowMap.enabled = !0, u.shadowMap.autoUpdate = !1, u.shadowMap.type = t.VSMShadowMap, this.canvas = u.domElement, this.canvas.className = "amx-canvas", e.appendChild(this.canvas), this.scene = new t.Scene(), this.pmrem = new t.PMREMGenerator(u), this.key = new t.DirectionalLight(16777215, 2.2), this.key.shadow.mapSize.set(1024, 1024), this.key.shadow.bias = -3e-4, this.key.shadow.radius = 14, this.key.shadow.blurSamples = 12, this.shadowFade = 0, this.hemi = new t.HemisphereLight(16777215, 10134434, .5), this.scene.add(this.key, this.key.target, this.hemi), this.bg = xe(e), this.pipe = new P(u), this.pipe.fin.uniforms.uBg.value.copy(this.bg), this.sketch = new z(u), this.sketch.setBackground(this.bg), this.ortho = new t.OrthographicCamera(), this.ortho.position.set(0, Math.sin(V), Math.cos(V)).multiplyScalar(2e3), this.ortho.lookAt(0, 0, 0), this.ortho.near = 1e3, this.ortho.far = 3e3, this.persp = new t.PerspectiveCamera(H, 1, 10, 4e4), this.items = n.map((e, t) => this.createItem(e, t)), this.current = 0, this.target = 0, this.active = 0, this.pointer = new t.Vector2(0, 0), this.follow = new t.Vector2(0, 0), this.followVel = new t.Vector2(0, 0), this.timer = new t.Timer(), this.raycaster = new t.Raycaster(), this._box = new t.Box3(), this._v = new t.Vector3(), this.frames = 0, this.resize(), new ResizeObserver(() => this.resize()).observe(e), this.bindPointer(), this.bindVisibility(), this.applyStyle(), this.ready = this.load(), this.loaded = this.ready.then(() => this.rest), u.setAnimationLoop(() => this.tick());
 	}
 	get camera() {
 		return this.style === "color" ? this.persp : this.ortho;
@@ -787,13 +787,13 @@ var Se = class {
 			e.scene.updateMatrixWorld(!0), e.scene.traverse((e) => {
 				e.isMesh && !t && (t = e);
 			}), this.parts[n] = _e(t);
-		})), a = this.items.length, o = [...this.items].sort((e, t) => Math.abs(K(e.index - this.target, a)) - Math.abs(K(t.index - this.target, a))), s = w(), c = async (e, t) => {
+		})), a = this.items.length, o = [...this.items].sort((e, t) => Math.abs(q(e.index - this.target, a)) - Math.abs(q(t.index - this.target, a))), s = w(), c = async (e, t) => {
 			await Promise.all([...(e.def.parts || []).map(i), t || s]), this.buildItem(e), this.styleItem(e), await this.compileItem(e), e.built = !0, this.onBuilt?.(e.index);
 		};
 		await c(o[0], !0), this.rest = (async () => {
 			for (let e of o.slice(1)) for (let t of e.def.parts || []) i(t);
-			for (let e of o.slice(1)) await Z(), await c(e);
-			await Z(), this.precompile();
+			for (let e of o.slice(1)) await Q(), await c(e);
+			await Q(), this.precompile();
 		})();
 	}
 	compileItem(e) {
@@ -814,14 +814,14 @@ var Se = class {
 			t.userData.catcher ? e.catchers.push(t) : t.isMesh && r.push(t);
 		});
 		e.edgeMat = new t.LineBasicMaterial({
-			color: J,
+			color: Y,
 			transparent: !0,
 			opacity: .75
 		});
 		let i = /* @__PURE__ */ new Map(), a = /* @__PURE__ */ new Map();
 		for (let o of r) {
 			if (o.userData.item = e, n.add(o.material), !i.has(o.material)) {
-				let e = M(o.material.userData.finish, o.material.userData);
+				let e = ie(o.material.userData.finish, o.material.userData);
 				i.set(o.material, e);
 				let n = e.userData.edge;
 				if (n) {
@@ -833,7 +833,7 @@ var Se = class {
 					a.set(e, {
 						m: r,
 						color: r.color.clone(),
-						grey: X(r.color)
+						grey: Z(r.color)
 					});
 				}
 			}
@@ -842,11 +842,11 @@ var Se = class {
 			let s = o.userData.edgeGeo || o.geometry, c = o.userData.edges === "none" && o.userData.sketchLines;
 			if (!c) {
 				let e = o.userData.edgeAngle ?? 28;
-				if (!q.has(s)) {
-					let n = s.userData.quantized ? ye(s, e) : Q(new t.EdgesGeometry(s, e));
-					q.set(s, o.userData.edgeKeep ? ve(n, o.userData.edgeKeep) : n);
+				if (!J.has(s)) {
+					let n = s.userData.quantized ? be(s, e) : ve(new t.EdgesGeometry(s, e));
+					J.set(s, o.userData.edgeKeep ? ye(n, o.userData.edgeKeep) : n);
 				}
-				c = q.get(s);
+				c = J.get(s);
 			}
 			let l = new t.LineSegments(c, e.edgeMat);
 			l.raycast = () => {}, l.onBeforeRender = $, l.layers.enable(1), l.userData.real = o.userData.realEdges === !1 ? null : a.get(r)?.m, l.userData.item = e, l.userData.sketchOnly = o.userData.edges === "none", l.userData.sketchWeight = l.userData.sketchOnly ? .22 : o.userData.see ? .6 : 1, o.add(l), e.edges.push(l);
@@ -854,13 +854,13 @@ var Se = class {
 		e.see = r.filter((e) => e.userData.see), e.meshes = r, e.reals = [...i.values()].map((e) => ({
 			m: e,
 			color: e.color.clone(),
-			grey: X(e.color)
+			grey: Z(e.color)
 		})), e.realEdges = [...a.values()], e.materials = [...n].map((e) => {
-			let n = .62 + Y(e.color) * .3;
+			let n = .62 + X(e.color) * .3;
 			return {
 				m: e,
 				grey: new t.Color(n, n, n),
-				mono: X(e.color),
+				mono: Z(e.color),
 				opacity: e.opacity
 			};
 		}), this.measure(e), e.tilt.rotation.y = e.def.yaw;
@@ -915,7 +915,7 @@ var Se = class {
 	}
 	fitShadow(e) {
 		let n = this._box.setFromObject(e.tilt), r = n.getCenter(this._v), i = Math.max(1, n.getSize(new t.Vector3()).length() * .55);
-		this.key.target.position.copy(r), this.key.position.copy(r).addScaledVector(pe, i * 4);
+		this.key.target.position.copy(r), this.key.position.copy(r).addScaledVector(U, i * 4);
 		let a = this.key.shadow.camera;
 		Object.assign(a, {
 			left: -i,
@@ -928,7 +928,7 @@ var Se = class {
 	}
 	go(e) {
 		let t = this.items.length;
-		this.target = this.current + K(e - this.current, t);
+		this.target = this.current + q(e - this.current, t);
 	}
 	next(e = 1) {
 		this.go(Math.round(this.target) + e);
@@ -1013,26 +1013,30 @@ var Se = class {
 		o !== this.active && (this.active = o, this.onChange?.(o));
 		for (let e of this.items) {
 			if (!e.built) continue;
-			let o = K(e.index - this.current, i), s = G(W(1 - Math.abs(o)));
-			e.hover += (+(this.hovered === e && s < .5) - e.hover) * (1 - Math.exp(-n * 5)), e.revealAt ?? (this.lastReveal = e.revealAt = Math.max(r, (this.lastReveal ?? -Infinity) + me)), this.reduced ? e.appear = 1 : r >= e.revealAt && (e.appearVel += ((1 - e.appear) * U - e.appearVel * he) * n, e.appear += e.appearVel * n);
-			let c = W(e.appear), l = G(W((s - .25) / .75));
+			let o = q(e.index - this.current, i), s = K(G(1 - Math.abs(o)));
+			e.hover += (+(this.hovered === e && s < .5) - e.hover) * (1 - Math.exp(-n * 5)), e.revealAt ?? (this.lastReveal = e.revealAt = Math.max(r, (this.lastReveal ?? -Infinity) + pe)), this.reduced ? e.appear = 1 : r >= e.revealAt && (e.appearVel += ((1 - e.appear) * W - e.appearVel * me) * n, e.appear += e.appearVel * n);
+			let c = G(e.appear), l = K(G((s - .25) / .75));
 			this.setExplode(e, l), e.content.position.lerpVectors(e.fit[0].center, e.fit[1].center, l).negate();
 			let [u, d] = e.fit, { small: f, big: p, slots: m } = this.layout, h = Math.min(f.w / u.w, f.h / u.h), g = Math.min(p.w / d.w, p.h / d.h), _ = t.MathUtils.lerp(h, g, s) * this.scale * c * (1 + e.hover * .04);
-			e.root.scale.setScalar(_), e.root.position.set(xe(m, o) * this.scale, e.hover * 6 - (1 - c) * 24 * this.scale, 0), e.root.visible = Math.abs(o) < 3.6 && c > .002, e.a = s;
+			e.root.scale.setScalar(_), e.root.position.set(Se(m, o) * this.scale, e.hover * 6 - (1 - c) * 24 * this.scale, 0), e.root.visible = Math.abs(o) < 3.6 && c > .002, e.a = s;
 			let v = this.reduced ? 0 : Math.sin(r * .3) * .07 * s;
 			if (e.tilt.rotation.y = e.def.yaw + v + this.follow.x * .09 * s, e.tilt.rotation.x = -this.follow.y * .045 * s, e.tilt.position.y = this.reduced ? 0 : Math.sin(r * .45 + e.index) * 1.5 * s, !a) {
 				for (let n of e.materials) n.m.color.lerpColors(n.grey, n.mono, s), n.m.transparent && (n.m.opacity = t.MathUtils.lerp(Math.min(1, n.opacity + .2), n.opacity, s));
-				e.edgeMat.color.copy(ge).lerp(J, s), e.edgeMat.opacity = .45 + .35 * s;
+				e.edgeMat.color.copy(ge).lerp(Y, s), e.edgeMat.opacity = .45 + .35 * s;
 			}
 		}
-		this.style === "sketch" ? this.sketch.render(this.scene, this.ortho, {
+		if (this.style === "sketch") this.sketch.render(this.scene, this.ortho, {
 			...this.sketchLists(),
 			time: r
-		}) : a ? (this.items[this.active].built && this.fitShadow(this.items[this.active]), this.pipe.render(this.scene, this.persp, {
-			aoRadius: 34 * this.scale,
-			ao: 1.6,
-			time: r
-		})) : this.renderer.render(this.scene, this.ortho);
+		});
+		else if (a) {
+			let e = this.items[this.active], t = e.built && e.a > .995 && e.appear > .99 && Math.abs(this.target - this.current) < .01;
+			this.shadowFade = t ? Math.min(1, this.shadowFade + n / he) : 0, this.key.shadow.intensity = K(this.shadowFade), this.shadowFade > 0 && this.fitShadow(e), this.pipe.render(this.scene, this.persp, {
+				aoRadius: 34 * this.scale,
+				ao: 1.6,
+				time: r
+			});
+		} else this.renderer.render(this.scene, this.ortho);
 	}
 	snapshot(e, n = 204) {
 		let r = this.items[e];
@@ -1057,17 +1061,17 @@ var Se = class {
 		for (let e of r.materials) e.m.color.copy(e.mono), e.m.opacity = e.opacity;
 		for (let e of r.reals) e.m.color.copy(e.color), e.m.userData.u.amxSat.value = 1;
 		for (let e of r.realEdges) e.m.color.copy(e.color);
-		if (r.edgeMat.color.copy(J), r.edgeMat.opacity = .8, r.a = 1, this.style === "sketch") this.thumbSketch || (this.thumbSketch = new z(a), this.thumbSketch.setSize(n, n, 2), this.thumbSketch.setBackground(new t.Color(15592939))), this.thumbSketch.render(this.scene, s, {
+		if (r.edgeMat.color.copy(Y), r.edgeMat.opacity = .8, r.a = 1, this.style === "sketch") this.thumbSketch || (this.thumbSketch = new z(a), this.thumbSketch.setSize(n, n, 2), this.thumbSketch.setBackground(new t.Color(15592939))), this.thumbSketch.render(this.scene, s, {
 			hide: r.see,
 			lines: r.edges,
 			out: o
 		});
-		else if (i) this.thumbPipe || (this.thumbPipe = new N(a), this.thumbPipe.setSize(n, n), this.thumbPipe.fin.uniforms.uBg.value.set(15592939)), this.fitShadow(r), this.thumbPipe.render(this.scene, s, {
+		else if (i) this.thumbPipe || (this.thumbPipe = new P(a), this.thumbPipe.setSize(n, n), this.thumbPipe.fin.uniforms.uBg.value.set(15592939)), this.fitShadow(r), this.key.shadow.intensity = 1, this.thumbPipe.render(this.scene, s, {
 			out: o,
 			grain: 0,
 			bloom: 0,
 			aoRadius: l * .05
-		});
+		}), this.key.shadow.intensity = K(this.shadowFade);
 		else {
 			o.texture.colorSpace = t.SRGBColorSpace;
 			let e = this.scene.background;
@@ -1088,4 +1092,4 @@ var Se = class {
 	}
 };
 //#endregion
-export { B as LAYOUTS, Se as Stage };
+export { B as LAYOUTS, Ce as Stage };
