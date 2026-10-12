@@ -143,13 +143,24 @@ function sheetFromLine(pts, t) {
 // Skins are translucent boxes; ribs and webs are one merged mesh drawn as faint unlit stripes, no outlines
 // (real rib faces stack up and shade dark).
 const VIS = { skin: 0.6, rib: 0.5 };
-function multiwallSheet(width, length, tint, { thick, pitch, skins, rib, cross }) {
+function multiwallSheet(width, length, tint, { thick, pitch, skins, rib, cross, catchShadow }) {
   const g = new THREE.Group();
   const skinMat = polyMaterial(tint, 0.5, ['y', 'thin']);
   for (const [y, t] of skins) {
     const m = mesh(new THREE.BoxGeometry(width, Math.max(t, VIS.skin) * MM, length), skinMat);
     m.position.y = (y - thick / 2) * MM;
     g.add(m);
+  }
+  if (catchShadow) {
+    // a see-through skin barely shows a shadow (it is mostly what is behind it), so a shadow-only plane
+    // on top carries it: the opal sheet above looks solid and should shade the bronze one
+    const c = new THREE.Mesh(new THREE.PlaneGeometry(width, length), new THREE.ShadowMaterial({ opacity: catchShadow, depthWrite: false }));
+    c.rotation.x = -Math.PI / 2;
+    c.position.y = (thick / 2) * MM + 0.01;
+    c.receiveShadow = true;
+    c.userData.catcher = true;
+    c.raycast = () => {}; // clicks go to the sheet
+    g.add(c);
   }
   const cells = Math.floor(width / (pitch * MM));
   const x0 = (-cells * pitch * MM) / 2, ribs = [];
@@ -241,7 +252,7 @@ function arcWaveLine(width, pitch, depth, r) {
 function multiwall() {
   const W = 18, L = 14;
   const specs = [
-    { c: 'bronze', thick: 25, pitch: 10, rib: 0.3, cross: 0.15, skins: [[0.5, 1], [12.5, 0.1], [24.5, 1]] },
+    { c: 'bronze', thick: 25, pitch: 10, rib: 0.3, cross: 0.15, skins: [[0.5, 1], [12.5, 0.1], [24.5, 1]], catchShadow: 0.45 },
     { c: 'opal', thick: 16, pitch: 20, rib: 0.5, skins: [[0.3, 0.6], [8, 0.2], [15.7, 0.6]] },
     { c: 'clear', thick: 8, pitch: 10, rib: 0.4, skins: [[0.2, 0.4], [7.8, 0.4]] },
   ];

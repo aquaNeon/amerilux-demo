@@ -772,6 +772,7 @@ var Se = class {
 			reals: [],
 			meshes: [],
 			edges: [],
+			catchers: [],
 			built: !1,
 			hover: 0,
 			appear: 0,
@@ -809,8 +810,8 @@ var Se = class {
 	buildItem(e) {
 		e.layers = e.def.build(this.parts);
 		let n = /* @__PURE__ */ new Set(), r = [];
-		for (let t of e.layers) t.home = t.object.position.clone(), e.content.add(t.object), t.object.traverse((e) => {
-			e.isMesh && r.push(e);
+		for (let t of e.layers) t.home = t.object.position.clone(), e.content.add(t.object), t.object.traverse((t) => {
+			t.userData.catcher ? e.catchers.push(t) : t.isMesh && r.push(t);
 		});
 		e.edgeMat = new t.LineBasicMaterial({
 			color: J,
@@ -875,6 +876,7 @@ var Se = class {
 	styleItem(e) {
 		let t = this.style === "color", n = this.style === "sketch";
 		for (let n of e.meshes) n.material = t ? n.userData.real : n.userData.illus, n.castShadow = n.receiveShadow = t && !n.userData.see, n.userData.noCast && (n.castShadow = !1), n.userData.noShadow && (n.castShadow = n.receiveShadow = !1);
+		for (let n of e.catchers) n.visible = t;
 		for (let r of e.edges) r.material = t && r.userData.real || e.edgeMat, r.visible = !n && !r.userData.sketchOnly && (!t || !!r.userData.real);
 	}
 	precompile() {

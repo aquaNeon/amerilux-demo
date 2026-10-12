@@ -135,40 +135,47 @@ var b = {
 	skin: .6,
 	rib: .5
 };
-function x(n, r, i, { thick: o, pitch: c, skins: u, rib: f, cross: p }) {
-	let m = new e.Group(), h = l(i, .5, ["y", "thin"]);
+function x(n, r, i, { thick: o, pitch: c, skins: u, rib: f, cross: p, catchShadow: m }) {
+	let h = new e.Group(), g = l(i, .5, ["y", "thin"]);
 	for (let [t, i] of u) {
-		let s = d(new e.BoxGeometry(n, Math.max(i, b.skin) * a, r), h);
-		s.position.y = (t - o / 2) * a, m.add(s);
+		let s = d(new e.BoxGeometry(n, Math.max(i, b.skin) * a, r), g);
+		s.position.y = (t - o / 2) * a, h.add(s);
 	}
-	let g = Math.floor(n / (c * a)), _ = -g * c * a / 2, v = [];
-	for (let t = 0; t <= g; t++) {
+	if (m) {
+		let t = new e.Mesh(new e.PlaneGeometry(n, r), new e.ShadowMaterial({
+			opacity: m,
+			depthWrite: !1
+		}));
+		t.rotation.x = -Math.PI / 2, t.position.y = o / 2 * a + .01, t.receiveShadow = !0, t.userData.catcher = !0, t.raycast = () => {}, h.add(t);
+	}
+	let _ = Math.floor(n / (c * a)), v = -_ * c * a / 2, y = [];
+	for (let t = 0; t <= _; t++) {
 		let n = new e.BoxGeometry(Math.max(f, b.rib) * a, o * a, r);
-		n.translate(_ + t * c * a, 0, 0), v.push(n);
+		n.translate(v + t * c * a, 0, 0), y.push(n);
 	}
 	if (p) {
 		let t = (o / 2 - u[0][1]) * a, n = c * a, i = Math.hypot(n, t), s = Math.atan2(t, n);
-		for (let o = 0; o < g; o++) {
-			let c = o % 2 ? _ + o * n : _ + (o + 1) * n;
+		for (let o = 0; o < _; o++) {
+			let c = o % 2 ? v + o * n : v + (o + 1) * n;
 			for (let l of [1, -1]) {
 				let u = new e.BoxGeometry(i, Math.max(p, b.rib) * a, r);
-				u.rotateZ((o % 2 ? l : -l) * s), u.translate(c + (o % 2 ? n / 2 : -n / 2), l * t / 2, 0), v.push(u);
+				u.rotateZ((o % 2 ? l : -l) * s), u.translate(c + (o % 2 ? n / 2 : -n / 2), l * t / 2, 0), y.push(u);
 			}
 		}
 	}
-	let y = s(new e.MeshBasicMaterial({
+	let x = s(new e.MeshBasicMaterial({
 		color: 2042408,
 		transparent: !0,
 		opacity: .16,
 		depthWrite: !1
-	}), `rib-${i}`, ["x", "thin"]), x = d(t(v), y);
-	x.userData.edges = "none";
-	let S = Math.max(1, Math.ceil(.6 / (c * a))), C = [];
-	for (let e = 0; e <= g; e += S) {
-		let t = _ + e * c * a, n = o / 2 * a, i = r / 2;
-		C.push(t, n, -i, t, n, i, t, n, i, t, -n, i, t, n, -i, t, -n, -i);
+	}), `rib-${i}`, ["x", "thin"]), S = d(t(y), x);
+	S.userData.edges = "none";
+	let C = Math.max(1, Math.ceil(.6 / (c * a))), w = [];
+	for (let e = 0; e <= _; e += C) {
+		let t = v + e * c * a, n = o / 2 * a, i = r / 2;
+		w.push(t, n, -i, t, n, i, t, n, i, t, -n, i, t, n, -i, t, -n, -i);
 	}
-	return x.userData.sketchLines = new e.BufferGeometry().setAttribute("position", new e.Float32BufferAttribute(C, 3)), m.add(x), m;
+	return S.userData.sketchLines = new e.BufferGeometry().setAttribute("position", new e.Float32BufferAttribute(w, 3)), h.add(S), h;
 }
 function S(e, t, n, r, i) {
 	let a = (t - r - i) / 2, o = [];
@@ -223,7 +230,8 @@ function T() {
 				[.5, 1],
 				[12.5, .1],
 				[24.5, 1]
-			]
+			],
+			catchShadow: .45
 		},
 		{
 			c: "opal",

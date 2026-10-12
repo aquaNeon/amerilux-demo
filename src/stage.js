@@ -244,7 +244,7 @@ export class Stage {
     tilt.add(content);
     root.visible = false;
     this.scene.add(root);
-    return { slug, index, def, root, tilt, content, layers: [], materials: [], reals: [], meshes: [], edges: [], built: false, hover: 0, appear: 0, appearVel: 0 };
+    return { slug, index, def, root, tilt, content, layers: [], materials: [], reals: [], meshes: [], edges: [], catchers: [], built: false, hover: 0, appear: 0, appearVel: 0 };
   }
 
   // Active product first: fetch its GLBs, build it, compile its shaders off the main thread
@@ -306,7 +306,8 @@ export class Stage {
     for (const l of it.layers) {
       l.home = l.object.position.clone();
       it.content.add(l.object);
-      l.object.traverse((o) => { if (o.isMesh) meshes.push(o); });
+      // shadow-only planes on see-through sheets (photoreal only) are kept apart from the product meshes
+      l.object.traverse((o) => { if (o.userData.catcher) it.catchers.push(o); else if (o.isMesh) meshes.push(o); });
     }
     // B&W outlines; photoreal keeps outlines only on see-through sheets (tinted cut edges)
     it.edgeMat = new THREE.LineBasicMaterial({ color: EDGE_ON, transparent: true, opacity: 0.75 });
@@ -395,6 +396,7 @@ export class Stage {
       if (o.userData.noCast) o.castShadow = false;
       if (o.userData.noShadow) o.castShadow = o.receiveShadow = false;
     }
+    for (const c of it.catchers) c.visible = real;
     for (const l of it.edges) {
       l.material = real ? l.userData.real || it.edgeMat : it.edgeMat;
       l.visible = !sketch && !l.userData.sketchOnly && (!real || !!l.userData.real);
