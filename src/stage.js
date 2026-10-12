@@ -30,7 +30,7 @@ const APPEAR_K = 26, APPEAR_C = 2 * Math.sqrt(APPEAR_K); // entrance spring: cri
 
 const clamp01 = (v) => Math.min(1, Math.max(0, v));
 const ease = (t) => t * t * (3 - 2 * t);
-const SHADOW_IN = 0.45; // s, shadow fade-in once the active product has settled
+const SHADOW_IN = 0.45; // s, shadow fade-in after the active product's entrance
 const wrap = (v, n) => ((((v + n / 2) % n) + n) % n) - n / 2;
 const edgeCache = new WeakMap();
 const EDGE_ON = new THREE.Color(0x1f2a28);
@@ -190,7 +190,7 @@ export class Stage {
     this.key.shadow.bias = -0.0003;
     this.key.shadow.radius = 14; // VSM blur (texels): soft edges, and no stair-stepping as the product sways
     this.key.shadow.blurSamples = 12;
-    this.shadowFade = 0; // 0 while the active product scales / switches in, then fades to 1
+    this.shadowFade = 0; // 0 during the active product's entrance, then fades to 1
     this.hemi = new THREE.HemisphereLight(0xffffff, 0x9aa3a2, 0.5);
     this.scene.add(this.key, this.key.target, this.hemi);
 
@@ -654,10 +654,10 @@ export class Stage {
     if (this.style === 'sketch') {
       this.sketch.render(this.scene, this.ortho, { ...this.sketchLists(), time: t });
     } else if (real) {
-      // shadows only once the active product has settled: refitting the shadow while it scales up
-      // flickers, and skipping it saves the shadow render + blur for the whole transition
+      // shadows only once the active product has finished its entrance (grow-in): refitting the shadow
+      // while it scales up from nothing flickers. Dragging / switching keeps them on
       const act = this.items[this.active];
-      const settled = act.built && act.a > 0.995 && act.appear > 0.99 && Math.abs(this.target - this.current) < 0.01;
+      const settled = act.built && act.appear > 0.99;
       this.shadowFade = settled ? Math.min(1, this.shadowFade + dt / SHADOW_IN) : 0;
       this.key.shadow.intensity = ease(this.shadowFade);
       if (this.shadowFade > 0) this.fitShadow(act);

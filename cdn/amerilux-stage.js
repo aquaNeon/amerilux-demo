@@ -1030,7 +1030,7 @@ var Ce = class {
 			time: r
 		});
 		else if (a) {
-			let e = this.items[this.active], t = e.built && e.a > .995 && e.appear > .99 && Math.abs(this.target - this.current) < .01;
+			let e = this.items[this.active], t = e.built && e.appear > .99;
 			this.shadowFade = t ? Math.min(1, this.shadowFade + n / he) : 0, this.key.shadow.intensity = K(this.shadowFade), this.shadowFade > 0 && this.fitShadow(e), this.pipe.render(this.scene, this.persp, {
 				aoRadius: 34 * this.scale,
 				ao: 1.6,
