@@ -697,7 +697,7 @@ var W = {
 	"siding-cladding": {
 		build: F,
 		yaw: .85,
-		openYaw: 4.15 - Math.PI * 2
+		openYaw: -1.35
 	},
 	"specialty-products": {
 		build: U,
