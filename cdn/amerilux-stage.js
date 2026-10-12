@@ -903,17 +903,22 @@ var we = class {
 	setExplode(e, t) {
 		for (let n of e.layers) n.object.position.copy(n.home).addScaledVector(n.explode, t), n.arc && n.object.position.addScaledVector(n.arc, Math.sin(Math.PI * t));
 	}
+	yawAt(e, n) {
+		let { yaw: r, openYaw: i } = e.def;
+		return i == null ? r : t.MathUtils.lerp(r, i, n);
+	}
 	measure(e) {
-		let n = new t.Matrix4().makeRotationFromQuaternion(this.ortho.quaternion.clone().invert()), r = new t.Matrix4().makeRotationY(e.def.yaw), i = n.multiply(r), a = new t.Box3(), o = new t.Vector3();
-		e.fit = [0, 1].map((n) => {
-			this.setExplode(e, n), e.content.position.set(0, 0, 0), e.content.updateMatrixWorld(!0), a.makeEmpty();
-			for (let t of e.layers) a.expandByObject(t.object);
-			let r = a.getCenter(new t.Vector3()), s = Infinity, c = -Infinity, l = Infinity, u = -Infinity;
-			for (let e = 0; e < 8; e++) o.set(e & 1 ? a.max.x : a.min.x, e & 2 ? a.max.y : a.min.y, e & 4 ? a.max.z : a.min.z).sub(r).applyMatrix4(i), s = Math.min(s, o.x), c = Math.max(c, o.x), l = Math.min(l, o.y), u = Math.max(u, o.y);
+		let n = new t.Matrix4().makeRotationFromQuaternion(this.ortho.quaternion.clone().invert()), r = new t.Box3(), i = new t.Vector3();
+		e.fit = [0, 1].map((a) => {
+			let o = n.clone().multiply(new t.Matrix4().makeRotationY(this.yawAt(e, a)));
+			this.setExplode(e, a), e.content.position.set(0, 0, 0), e.content.updateMatrixWorld(!0), r.makeEmpty();
+			for (let t of e.layers) r.expandByObject(t.object);
+			let s = r.getCenter(new t.Vector3()), c = Infinity, l = -Infinity, u = Infinity, d = -Infinity;
+			for (let e = 0; e < 8; e++) i.set(e & 1 ? r.max.x : r.min.x, e & 2 ? r.max.y : r.min.y, e & 4 ? r.max.z : r.min.z).sub(s).applyMatrix4(o), c = Math.min(c, i.x), l = Math.max(l, i.x), u = Math.min(u, i.y), d = Math.max(d, i.y);
 			return {
-				center: r,
-				w: c - s,
-				h: u - l
+				center: s,
+				w: l - c,
+				h: d - u
 			};
 		});
 	}
@@ -1025,7 +1030,7 @@ var we = class {
 			let [u, d] = e.fit, { small: f, big: p, slots: m } = this.layout, h = Math.min(f.w / u.w, f.h / u.h), g = Math.min(p.w / d.w, p.h / d.h), _ = t.MathUtils.lerp(h, g, s) * this.scale * c * (1 + e.hover * .04);
 			e.root.scale.setScalar(_), e.root.position.set(Ce(m, o) * this.scale, e.hover * 6 - (1 - c) * 24 * this.scale, 0), e.root.visible = Math.abs(o) < 3.6 && c > .002, e.a = s;
 			let v = this.reduced ? 0 : Math.sin(r * .3) * .07 * s;
-			if (e.tilt.rotation.y = e.def.yaw + v + this.follow.x * .09 * s, e.tilt.rotation.x = -this.follow.y * .045 * s, e.tilt.position.y = this.reduced ? 0 : Math.sin(r * .45 + e.index) * 1.5 * s, !a) {
+			if (e.tilt.rotation.y = this.yawAt(e, l) + v + this.follow.x * .09 * s, e.tilt.rotation.x = -this.follow.y * .045 * s, e.tilt.position.y = this.reduced ? 0 : Math.sin(r * .45 + e.index) * 1.5 * s, !a) {
 				for (let n of e.materials) n.m.color.lerpColors(n.grey, n.mono, s), n.m.transparent && (n.m.opacity = t.MathUtils.lerp(Math.min(1, n.opacity + .2), n.opacity, s));
 				e.edgeMat.color.copy(Y).lerp(J, s), e.edgeMat.opacity = .45 + .35 * s;
 			}
@@ -1062,7 +1067,7 @@ var we = class {
 		};
 		this.items.forEach((e) => {
 			e.root.visible = e === r;
-		}), this.setExplode(r, 1), r.content.position.copy(c.center).negate(), r.root.position.set(0, 0, 0), r.root.scale.setScalar(1), r.tilt.rotation.set(0, r.def.yaw, 0), r.tilt.position.y = 0;
+		}), this.setExplode(r, 1), r.content.position.copy(c.center).negate(), r.root.position.set(0, 0, 0), r.root.scale.setScalar(1), r.tilt.rotation.set(0, this.yawAt(r, 1), 0), r.tilt.position.y = 0;
 		for (let e of r.materials) e.m.color.copy(e.mono), e.m.opacity = e.opacity;
 		for (let e of r.reals) e.m.color.copy(e.color), e.m.userData.u.amxSat.value = 1;
 		for (let e of r.realEdges) e.m.color.copy(e.color);

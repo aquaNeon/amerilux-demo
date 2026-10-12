@@ -484,51 +484,130 @@ function k() {
 		};
 	});
 }
-function A() {
-	let e = .3, t = 8.31;
-	return [
-		[0, .795],
-		[t, .795],
-		[t, .795 - e * .55],
-		[7, .795 - e * .55],
-		[7, .49500000000000005],
-		[1.9, .49500000000000005],
-		[1.9, .06],
-		[1.1, 0],
-		[1.1, .12],
-		[1.62, .16],
-		[1.62, .49500000000000005],
-		[.35, .49500000000000005],
-		[.35, .37500000000000006],
-		[.12, .37500000000000006],
-		[0, .795 - e * .2]
-	];
-}
+var A = 8.31 / 637.05;
 function j() {
-	let { geo: e, edge: t } = g(A(), {
+	return [
+		[
+			108.41,
+			319.02,
+			4.5
+		],
+		[
+			675.6,
+			319.02,
+			1
+		],
+		[
+			675.95,
+			323.95,
+			1.4
+		],
+		[
+			712.3,
+			323.95,
+			1.5
+		],
+		[
+			712.5,
+			318.39,
+			1
+		],
+		[
+			745.8,
+			317.95,
+			3.5
+		],
+		[
+			746.98,
+			329.8,
+			3
+		],
+		[
+			720.3,
+			332.5,
+			2
+		],
+		[
+			719.42,
+			344.02,
+			2.2
+		],
+		[
+			234.48,
+			344.02,
+			5
+		],
+		[
+			229.29,
+			376.59,
+			8
+		],
+		[
+			186.6,
+			379.4,
+			2.5
+		],
+		[
+			187.2,
+			368.1,
+			2
+		],
+		[
+			213.17,
+			365.8,
+			2
+		],
+		[
+			216.64,
+			344.02,
+			5
+		],
+		[
+			132.09,
+			344.02,
+			2.3
+		],
+		[
+			131.1,
+			352.7,
+			2
+		],
+		[
+			116.88,
+			353,
+			3.5
+		]
+	].map(([e, t, n]) => [
+		(e - 109.6) * A,
+		(379.3 - t) * A,
+		n * A
+	]);
+}
+var M = 7, N = 34.3 * A, P = Math.atan2(N, M);
+function F() {
+	let { geo: e, edge: t } = g(j(), {
 		depth: 22,
-		r: .03,
 		bevel: .014
-	}), n = u("cladding", .6, "cladding");
+	}), n = u("cladding", .6, "cladding"), r = Math.PI / 2 - P;
 	return [
 		0,
 		1,
 		2
-	].map((r) => {
-		let a = d(e, n, t);
-		return a.userData.noAO = !0, a.rotation.z = Math.PI / 2, a.position.set(0, (r - 1) * 7, 0), {
-			object: a,
-			explode: i(0, (r - 1) * 2.6, 0),
-			arc: i(-.9, 0, 0)
+	].map((a) => {
+		let o = d(e, n, t);
+		return o.userData.noAO = !0, o.rotation.z = r, o.position.set(0, (a - 1) * Math.hypot(M, N), 0), {
+			object: o,
+			explode: i(0, (a - 1) * 2.6, 0),
+			arc: i(-.5, 0, 0)
 		};
 	});
 }
-var M = 50, N = (e, t = .01) => {
+var I = 50, L = (e, t = .01) => {
 	let n = (n) => n.y < e.min.y + t || n.y > e.max.y - t, r = (n) => n.z < e.min.z + t || n.z > e.max.z - t;
 	return (e, t) => n(e) && n(t) || r(e) && r(t);
-}, P = 14, F = 4;
-function I(t) {
-	let n = R(t);
+}, R = 14, z = 4;
+function B(t) {
+	let n = H(t);
 	for (let e of n) e.explode.y += 6;
 	let r = {
 		"16-in-inner": 16,
@@ -540,17 +619,17 @@ function I(t) {
 	], o = new e.Quaternion().setFromAxisAngle(i(0, 1, 0), Math.PI / 2), s = a.reduce((e, t) => e + r[t], 0), c = t["8-panel"].boundingBox.min.y, l = -s / 2;
 	return a.forEach((e, a) => {
 		let s = d(t[e], u("profile", .35, "pvc-white"));
-		s.userData.edgeAngle = M, s.userData.edgeKeep = N(t[e].boundingBox), s.quaternion.copy(o), s.scale.z = P / 6, s.position.set(0, c - 3, l + r[e] / 2), l += r[e], n.push({
+		s.userData.edgeAngle = I, s.userData.edgeKeep = L(t[e].boundingBox), s.quaternion.copy(o), s.scale.z = R / 6, s.position.set(0, c - 3, l + r[e] / 2), l += r[e], n.push({
 			object: s,
-			explode: i(0, 0, (a - 1) * F)
+			explode: i(0, 0, (a - 1) * z)
 		});
 	}), n;
 }
-function L(t, n, r, a) {
+function V(t, n, r, a) {
 	let o = n.map((n) => t[n].boundingBox.getSize(new e.Vector3())), s = -o.reduce((e, t) => e + t.z, 0) / 2;
 	return n.map((e, c) => {
 		let l = d(t[e], a());
-		l.userData.edgeAngle = M, l.position.z = s + o[c].z / 2, s += o[c].z;
+		l.userData.edgeAngle = I, l.position.z = s + o[c].z / 2, s += o[c].z;
 		let u = c - (n.length - 1) / 2;
 		return {
 			object: l,
@@ -558,8 +637,8 @@ function L(t, n, r, a) {
 		};
 	});
 }
-function R(e) {
-	return L(e, [
+function H(e) {
+	return V(e, [
 		"8-in-fem",
 		"8-panel",
 		"4.5-in-spacer",
@@ -567,7 +646,7 @@ function R(e) {
 		"8-in-male"
 	], 7, () => u("profile", .38, "pvc-form"));
 }
-function z(t) {
+function U(t) {
 	let n = (e) => (e.rotation.y = Math.PI, e), r = u("well", .4, "steel-galv");
 	r.side = e.DoubleSide;
 	let a = n(d(t["egress-well"], r));
@@ -584,7 +663,7 @@ function z(t) {
 		explode: i(0, 16, 3)
 	}];
 }
-var B = {
+var W = {
 	"multiwall-sheets": {
 		build: w,
 		yaw: -.62
@@ -598,7 +677,7 @@ var B = {
 		yaw: -.62
 	},
 	"panel-systems": {
-		build: I,
+		build: B,
 		yaw: .72,
 		parts: [
 			"16-in-inner",
@@ -614,11 +693,12 @@ var B = {
 		yaw: -.62
 	},
 	"siding-cladding": {
-		build: j,
-		yaw: .85
+		build: F,
+		yaw: .85,
+		openYaw: 3.6
 	},
 	"specialty-products": {
-		build: z,
+		build: U,
 		yaw: .55,
 		parts: [
 			"egress-well",
@@ -628,4 +708,4 @@ var B = {
 	}
 };
 //#endregion
-export { B as PRODUCTS, o as TINT, l as polyMaterial, u as solidMaterial };
+export { W as PRODUCTS, o as TINT, l as polyMaterial, u as solidMaterial };

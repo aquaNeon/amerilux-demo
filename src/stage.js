@@ -443,14 +443,19 @@ export class Stage {
     }
   }
 
+  // base yaw at explode e: products with `openYaw` turn as they open (e.g. siding shows its hook side)
+  yawAt(it, e) {
+    const { yaw, openYaw } = it.def;
+    return openYaw == null ? yaw : THREE.MathUtils.lerp(yaw, openYaw, e);
+  }
+
   // screen-space extents (px per inch at scale 1) for assembled and exploded states
   measure(it) {
     const view = new THREE.Matrix4().makeRotationFromQuaternion(this.ortho.quaternion.clone().invert());
-    const yaw = new THREE.Matrix4().makeRotationY(it.def.yaw);
-    const m = view.multiply(yaw);
     const box = new THREE.Box3();
     const corner = new THREE.Vector3();
     it.fit = [0, 1].map((e) => {
+      const m = view.clone().multiply(new THREE.Matrix4().makeRotationY(this.yawAt(it, e)));
       this.setExplode(it, e);
       it.content.position.set(0, 0, 0);
       it.content.updateMatrixWorld(true);
@@ -658,7 +663,7 @@ export class Stage {
 
       // motion: gentle idle sway on active, pointer parallax
       const sway = this.reduced ? 0 : Math.sin(t * 0.3) * 0.07 * a;
-      it.tilt.rotation.y = it.def.yaw + sway + this.follow.x * 0.09 * a;
+      it.tilt.rotation.y = this.yawAt(it, e) + sway + this.follow.x * 0.09 * a;
       it.tilt.rotation.x = -this.follow.y * 0.045 * a;
       it.tilt.position.y = this.reduced ? 0 : Math.sin(t * 0.45 + it.index) * 1.5 * a;
 
@@ -714,7 +719,7 @@ export class Stage {
     it.content.position.copy(f.center).negate();
     it.root.position.set(0, 0, 0);
     it.root.scale.setScalar(1);
-    it.tilt.rotation.set(0, it.def.yaw, 0);
+    it.tilt.rotation.set(0, this.yawAt(it, 1), 0);
     it.tilt.position.y = 0;
     for (const m of it.materials) { m.m.color.copy(m.mono); m.m.opacity = m.opacity; }
     for (const m of it.reals) { m.m.color.copy(m.color); m.m.userData.u.amxSat.value = 1; }

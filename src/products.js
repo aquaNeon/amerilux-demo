@@ -357,28 +357,34 @@ function decking() {
   });
 }
 
-// Elite lap siding: 8.31" x 0.795", 7.00" exposure, 1.31" lap
+// Elite lap siding, from the vector outline in `Lap-Siding-Technical-Specification_EN.pdf` (PDF points; its 8.31"
+// and 0.795" dimensions agree on one scale). x runs up the course: drip lip + hook (leg, foot) at the bottom, the
+// 1.31" nailing hem with its stepped face at the top. Corner radii from the drawing's fillets.
+const LAP_S = 8.31 / 637.05;
 function lapSidingSection() {
-  const t = 0.3, W = 8.31;
+  const P = ([x, y, r]) => [(x - 109.6) * LAP_S, (379.3 - y) * LAP_S, r * LAP_S];
   return [
-    [0, 0.795], [W, 0.795], [W, 0.795 - t * 0.55], [W - 1.31, 0.795 - t * 0.55], [W - 1.31, 0.795 - t], [1.9, 0.795 - t],
-    [1.9, 0.06], [1.1, 0], [1.1, 0.12], [1.62, 0.16], [1.62, 0.795 - t], [0.35, 0.795 - t],
-    [0.35, 0.795 - t - 0.12], [0.12, 0.795 - t - 0.12], [0, 0.795 - t * 0.2],
-  ];
+    [108.41, 319.02, 4.5], [675.6, 319.02, 1], [675.95, 323.95, 1.4], [712.3, 323.95, 1.5], [712.5, 318.39, 1], // face, hem step
+    [745.8, 317.95, 3.5], [746.98, 329.8, 3], [720.3, 332.5, 2], [719.42, 344.02, 2.2], // hem
+    [234.48, 344.02, 5], [229.29, 376.59, 8], [186.6, 379.4, 2.5], [187.2, 368.1, 2], [213.17, 365.8, 2], [216.64, 344.02, 5], // hook
+    [132.09, 344.02, 2.3], [131.1, 352.7, 2], [116.88, 353, 3.5], // drip lip
+  ].map(P);
 }
 
+// Courses step 7.00" up the board and 34.3 pt out: the hem then sits in the next course's hook pocket, butting the leg,
+// with the lip resting on the face below. So every course leans back by atan(D / E), bottom kicked out, like on a wall.
+const LAP_E = 7, LAP_D = 34.3 * LAP_S, LAP_TILT = Math.atan2(LAP_D, LAP_E);
 function sidingCladding() {
-  const { geo, edge } = profile(lapSidingSection(), { depth: 22, r: 0.03, bevel: 0.014 });
+  const { geo, edge } = profile(lapSidingSection(), { depth: 22, bevel: 0.014 });
   const mat = solidMaterial('cladding', 0.6, 'cladding');
+  const rot = Math.PI / 2 - LAP_TILT; // stand up: course step (E, D) -> straight up, face (section +y) -> about world -x
   return [0, 1, 2].map((i) => {
     const m = mesh(geo, mat, edge);
     m.userData.noAO = true; // AO only: it reads the laps as dark smears; key-light shadows stay, like the other products
-    // standing as a wall: section x (up the course, hook at the bottom) -> world y, face out
-    m.rotation.z = Math.PI / 2; // face (section +y) -> world -x
-    m.position.set(0, (i - 1) * 7, 0);
-    // exploded: each course lifts straight up off the one below, swinging out from the wall on the way so the
-    // hook rides over the lap
-    return { object: m, explode: V(0, (i - 1) * 2.6, 0), arc: V(-0.9, 0, 0) };
+    m.rotation.z = rot;
+    m.position.set(0, (i - 1) * Math.hypot(LAP_E, LAP_D), 0);
+    // exploded: each course lifts straight up off the one below, easing out from the wall on the way
+    return { object: m, explode: V(0, (i - 1) * 2.6, 0), arc: V(-0.5, 0, 0) };
   });
 }
 
@@ -471,6 +477,6 @@ export const PRODUCTS = {
   'flat-sheets': { build: flatSheets, yaw: -0.62 },
   'panel-systems': { build: panelSystems, yaw: 0.72, parts: ['16-in-inner', '18-in-inner', '8-in-fem', '8-panel', '4.5-in-spacer', '8-in-male'] },
   'decking-railing': { build: decking, yaw: -0.62 },
-  'siding-cladding': { build: sidingCladding, yaw: 0.85 },
+  'siding-cladding': { build: sidingCladding, yaw: 0.85, openYaw: 3.6 },
   'specialty-products': { build: windowWell, yaw: 0.55, parts: ['egress-well', 'well-cover', 'well-cover-rail'] },
 };
