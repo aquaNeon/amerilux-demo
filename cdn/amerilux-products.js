@@ -69,36 +69,38 @@ function m(t, n = []) {
 	}
 	return r;
 }
-function h(e, t, n = 4, r = !0) {
-	let i = e.length, a = [];
-	for (let o = 0; o < i; o++) {
-		if (!r && (o === 0 || o === i - 1)) {
-			a.push(e[o]);
+function h(e, t, n = 4, r = !0, i = !1) {
+	let a = e.length, o = [];
+	for (let s = 0; s < a; s++) {
+		if (!r && (s === 0 || s === a - 1)) {
+			o.push(e[s]);
 			continue;
 		}
-		let s = e[o], c = e[(o - 1 + i) % i], l = e[(o + 1) % i], u = [c[0] - s[0], c[1] - s[1]], d = [l[0] - s[0], l[1] - s[1]], f = Math.hypot(...u), p = Math.hypot(...d), m = s[2] ?? t;
-		if (f < 1e-6 || p < 1e-6 || !m) {
-			a.push([s[0], s[1]]);
+		let c = e[s], l = e[(s - 1 + a) % a], u = e[(s + 1) % a], d = [l[0] - c[0], l[1] - c[1]], f = [u[0] - c[0], u[1] - c[1]], p = Math.hypot(...d), m = Math.hypot(...f), h = c[2] ?? t;
+		if (p < 1e-6 || m < 1e-6 || !h) {
+			o.push([c[0], c[1]]);
 			continue;
 		}
-		let h = [u[0] / f, u[1] / f], g = [d[0] / p, d[1] / p], _ = Math.acos(Math.max(-1, Math.min(1, h[0] * g[0] + h[1] * g[1])));
-		if (_ > Math.PI - .05) {
-			a.push([s[0], s[1]]);
+		let g = [d[0] / p, d[1] / p], _ = [f[0] / m, f[1] / m], v = Math.acos(Math.max(-1, Math.min(1, g[0] * _[0] + g[1] * _[1])));
+		if (v > Math.PI - .05) {
+			o.push([c[0], c[1]]);
 			continue;
 		}
-		let v = Math.min(m / Math.tan(_ / 2), f * .45, p * .45), y = [s[0] + h[0] * v, s[1] + h[1] * v], b = [s[0] + g[0] * v, s[1] + g[1] * v];
+		let y = Math.min(h / Math.tan(v / 2), p * .45, m * .45), b = [c[0] + g[0] * y, c[1] + g[1] * y], x = [c[0] + _[0] * y, c[1] + _[1] * y];
+		i && 2 * y < p * .5 && o.push([c[0] + g[0] * 2 * y, c[1] + g[1] * 2 * y]);
 		for (let e = 0; e <= n; e++) {
 			let t = e / n, r = 1 - t;
-			a.push([r * r * y[0] + 2 * r * t * s[0] + t * t * b[0], r * r * y[1] + 2 * r * t * s[1] + t * t * b[1]]);
+			o.push([r * r * b[0] + 2 * r * t * c[0] + t * t * x[0], r * r * b[1] + 2 * r * t * c[1] + t * t * x[1]]);
 		}
+		i && 2 * y < m * .5 && o.push([c[0] + _[0] * 2 * y, c[1] + _[1] * 2 * y]);
 	}
-	return a;
+	return o;
 }
 function g(t, { holes: r = [], depth: i, r: a = 0, hr: o = 0, bevel: s = 0 }) {
 	let c = f(new e.ExtrudeGeometry(m(t, r), {
 		depth: i,
 		bevelEnabled: !1
-	})), l = (e, t) => t || e.some((e) => e[2]) ? h(e, t) : e, u = new e.ExtrudeGeometry(m(l(t, a), r.map((e) => l(e, o))), {
+	})), l = (e, t) => e.some((e) => e[2]) ? h(e, t, 4, !0, !0) : t ? h(e, t) : e, u = new e.ExtrudeGeometry(m(l(t, a), r.map((e) => l(e, o))), {
 		depth: i - 2 * s,
 		bevelEnabled: s > 0,
 		bevelThickness: s,
@@ -695,7 +697,7 @@ var W = {
 	"siding-cladding": {
 		build: F,
 		yaw: .85,
-		openYaw: 3.6
+		openYaw: 3.6 - Math.PI * 2
 	},
 	"specialty-products": {
 		build: U,

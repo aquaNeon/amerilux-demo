@@ -87,7 +87,9 @@ function shapeFrom(pts, holes = []) {
 
 // Round every corner of a closed polygon (quadratic fillet) so long edges catch a highlight like a real extrusion.
 // Open polylines (closed = false) keep their end points. A third value on a point overrides r for that corner.
-function roundPts(pts, r, seg = 4, closed = true) {
+// `guard`: extra point on each side of a fillet, so creased normals bend only there and long flat faces stay flat
+// (otherwise the fillet's normal is interpolated across the whole face and shades it as a gradient).
+function roundPts(pts, r, seg = 4, closed = true, guard = false) {
   const n = pts.length, out = [];
   for (let i = 0; i < n; i++) {
     if (!closed && (i === 0 || i === n - 1)) { out.push(pts[i]); continue; }
@@ -100,10 +102,12 @@ function roundPts(pts, r, seg = 4, closed = true) {
     if (ang > Math.PI - 0.05) { out.push([p[0], p[1]]); continue; }
     const t = Math.min(rr / Math.tan(ang / 2), l1 * 0.45, l2 * 0.45);
     const p1 = [p[0] + u1[0] * t, p[1] + u1[1] * t], p2 = [p[0] + u2[0] * t, p[1] + u2[1] * t];
+    if (guard && 2 * t < l1 * 0.5) out.push([p[0] + u1[0] * 2 * t, p[1] + u1[1] * 2 * t]);
     for (let k = 0; k <= seg; k++) {
       const s = k / seg, q = 1 - s;
       out.push([q * q * p1[0] + 2 * q * s * p[0] + s * s * p2[0], q * q * p1[1] + 2 * q * s * p[1] + s * s * p2[1]]);
     }
+    if (guard && 2 * t < l2 * 0.5) out.push([p[0] + u2[0] * 2 * t, p[1] + u2[1] * 2 * t]);
   }
   return out;
 }
@@ -111,7 +115,7 @@ function roundPts(pts, r, seg = 4, closed = true) {
 // Softened extrusion (filleted corners r / hr on holes, bevelled ends) + the crisp one for outlines
 function profile(pts, { holes = [], depth, r = 0, hr = 0, bevel = 0 }) {
   const edge = centered(new THREE.ExtrudeGeometry(shapeFrom(pts, holes), { depth, bevelEnabled: false }));
-  const round = (p, rr) => (rr || p.some((q) => q[2]) ? roundPts(p, rr) : p);
+  const round = (p, rr) => (p.some((q) => q[2]) ? roundPts(p, rr, 4, true, true) : rr ? roundPts(p, rr) : p);
   const soft = new THREE.ExtrudeGeometry(shapeFrom(round(pts, r), holes.map((h) => round(h, hr))), {
     depth: depth - 2 * bevel, bevelEnabled: bevel > 0, bevelThickness: bevel, bevelSize: bevel * 0.8,
     bevelOffset: -bevel * 0.8, bevelSegments: 3, curveSegments: 8,
@@ -477,6 +481,6 @@ export const PRODUCTS = {
   'flat-sheets': { build: flatSheets, yaw: -0.62 },
   'panel-systems': { build: panelSystems, yaw: 0.72, parts: ['16-in-inner', '18-in-inner', '8-in-fem', '8-panel', '4.5-in-spacer', '8-in-male'] },
   'decking-railing': { build: decking, yaw: -0.62 },
-  'siding-cladding': { build: sidingCladding, yaw: 0.85, openYaw: 3.6 },
+  'siding-cladding': { build: sidingCladding, yaw: 0.85, openYaw: 3.6 - Math.PI * 2 },
   'specialty-products': { build: windowWell, yaw: 0.55, parts: ['egress-well', 'well-cover', 'well-cover-rail'] },
 };
