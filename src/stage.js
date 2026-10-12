@@ -443,10 +443,13 @@ export class Stage {
     }
   }
 
-  // base yaw at explode e: products with `openYaw` turn as they open (e.g. siding shows its hook side)
+  // base yaw at explode e: products with `openYaw` turn as they open (e.g. siding shows its hook side). Once fully
+  // open, closing carries on the same way round (from a full turn on) instead of turning back: one 360 per visit
   yawAt(it, e) {
     const { yaw, openYaw } = it.def;
-    return openYaw == null ? yaw : THREE.MathUtils.lerp(yaw, openYaw, e);
+    if (openYaw == null) return yaw;
+    const turn = Math.sign(openYaw - yaw) * Math.PI * 2;
+    return THREE.MathUtils.lerp(it.spinBack ? yaw + turn : yaw, openYaw, e);
   }
 
   // screen-space extents (px per inch at scale 1) for assembled and exploded states
@@ -663,6 +666,8 @@ export class Stage {
 
       // motion: gentle idle sway on active, pointer parallax
       const sway = this.reduced ? 0 : Math.sin(t * 0.3) * 0.07 * a;
+      if (e > 0.999) it.spinBack = true;
+      else if (e < 0.001) it.spinBack = false;
       it.tilt.rotation.y = this.yawAt(it, e) + sway + this.follow.x * 0.09 * a;
       it.tilt.rotation.x = -this.follow.y * 0.045 * a;
       it.tilt.position.y = this.reduced ? 0 : Math.sin(t * 0.45 + it.index) * 1.5 * a;

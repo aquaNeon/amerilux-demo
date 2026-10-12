@@ -905,7 +905,9 @@ var we = class {
 	}
 	yawAt(e, n) {
 		let { yaw: r, openYaw: i } = e.def;
-		return i == null ? r : t.MathUtils.lerp(r, i, n);
+		if (i == null) return r;
+		let a = Math.sign(i - r) * Math.PI * 2;
+		return t.MathUtils.lerp(e.spinBack ? r + a : r, i, n);
 	}
 	measure(e) {
 		let n = new t.Matrix4().makeRotationFromQuaternion(this.ortho.quaternion.clone().invert()), r = new t.Box3(), i = new t.Vector3();
@@ -1030,7 +1032,7 @@ var we = class {
 			let [u, d] = e.fit, { small: f, big: p, slots: m } = this.layout, h = Math.min(f.w / u.w, f.h / u.h), g = Math.min(p.w / d.w, p.h / d.h), _ = t.MathUtils.lerp(h, g, s) * this.scale * c * (1 + e.hover * .04);
 			e.root.scale.setScalar(_), e.root.position.set(Ce(m, o) * this.scale, e.hover * 6 - (1 - c) * 24 * this.scale, 0), e.root.visible = Math.abs(o) < 3.6 && c > .002, e.a = s;
 			let v = this.reduced ? 0 : Math.sin(r * .3) * .07 * s;
-			if (e.tilt.rotation.y = this.yawAt(e, l) + v + this.follow.x * .09 * s, e.tilt.rotation.x = -this.follow.y * .045 * s, e.tilt.position.y = this.reduced ? 0 : Math.sin(r * .45 + e.index) * 1.5 * s, !a) {
+			if (l > .999 ? e.spinBack = !0 : l < .001 && (e.spinBack = !1), e.tilt.rotation.y = this.yawAt(e, l) + v + this.follow.x * .09 * s, e.tilt.rotation.x = -this.follow.y * .045 * s, e.tilt.position.y = this.reduced ? 0 : Math.sin(r * .45 + e.index) * 1.5 * s, !a) {
 				for (let n of e.materials) n.m.color.lerpColors(n.grey, n.mono, s), n.m.transparent && (n.m.opacity = t.MathUtils.lerp(Math.min(1, n.opacity + .2), n.opacity, s));
 				e.edgeMat.color.copy(Y).lerp(J, s), e.edgeMat.opacity = .45 + .35 * s;
 			}
