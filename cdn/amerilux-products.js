@@ -597,7 +597,7 @@ function F() {
 		2
 	].map((a) => {
 		let o = d(e, n, t);
-		return o.userData.noAO = !0, o.rotation.z = r, o.position.set(0, (a - 1) * Math.hypot(M, N), 0), {
+		return o.rotation.z = r, o.position.set(0, (a - 1) * Math.hypot(M, N), 0), {
 			object: o,
 			explode: i(0, (a - 1) * 2.6, 0),
 			arc: i(-.5, 0, 0)

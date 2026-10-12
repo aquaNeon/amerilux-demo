@@ -228,6 +228,9 @@ export class Stage {
     this.timer = new THREE.Timer();
     this.raycaster = new THREE.Raycaster();
     this._box = new THREE.Box3();
+    this._box2 = new THREE.Box3();
+    this._m = new THREE.Matrix4();
+    this._v2 = new THREE.Vector3();
     this._v = new THREE.Vector3();
     this.frames = 0;
 
@@ -408,6 +411,7 @@ export class Stage {
       o.castShadow = o.receiveShadow = real && !o.userData.see;
       if (o.userData.noCast) o.castShadow = false;
       if (o.userData.noShadow) o.castShadow = o.receiveShadow = false;
+      o.userData.recv = o.receiveShadow;
     }
     for (const c of it.catchers) c.visible = real;
     for (const l of it.edges) {
@@ -490,6 +494,28 @@ export class Stage {
     this.key.shadow.normalBias = it.root.scale.x * 0.012;
     this.key.target.updateMatrixWorld();
     this.renderer.shadowMap.needsUpdate = true;
+    this.shadowNeighbours(it, R);
+  }
+
+  // Neighbours take the shadow only when they sit wholly inside the frustum (built around the active one): an
+  // edge cutting through one left it half shadowed (lap siding left of centre). receiveShadow is a uniform: cheap
+  shadowNeighbours(act, R) {
+    const view = this._m.lookAt(this.key.position, this.key.target.position, THREE.Object3D.DEFAULT_UP).invert();
+    const p = this._v2;
+    for (const it of this.items) {
+      if (!it.built) continue;
+      let inside = it === act;
+      if (!inside && it.root.visible) {
+        const b = this._box2.setFromObject(it.tilt);
+        inside = true;
+        for (let i = 0; i < 8 && inside; i++) {
+          p.set(i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z)
+            .sub(this.key.position).applyMatrix4(view);
+          inside = Math.abs(p.x) < R && Math.abs(p.y) < R && -p.z > R && -p.z < R * 8;
+        }
+      }
+      for (const o of it.meshes) o.receiveShadow = o.userData.recv && inside;
+    }
   }
 
   // --- navigation -------------------------------------------------------------

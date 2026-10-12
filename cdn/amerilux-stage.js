@@ -751,7 +751,7 @@ var we = class {
 			alpha: !0,
 			powerPreference: "high-performance"
 		});
-		u.setPixelRatio(Math.min(devicePixelRatio, 2)), u.debug.checkShaderErrors = !1, u.toneMapping = t.NeutralToneMapping, u.toneMappingExposure = .95, u.shadowMap.enabled = !0, u.shadowMap.autoUpdate = !1, u.shadowMap.type = t.PCFShadowMap, this.canvas = u.domElement, this.canvas.className = "amx-canvas", e.appendChild(this.canvas), this.scene = new t.Scene(), this.pmrem = new t.PMREMGenerator(u), this.key = new t.DirectionalLight(16777215, 2.2), this.key.shadow.mapSize.set(2048, 2048), this.key.shadow.bias = -.0015, this.key.shadow.radius = 16, this.shadowFade = 0, this.hemi = new t.HemisphereLight(16777215, 10134434, .5), this.scene.add(this.key, this.key.target, this.hemi), this.bg = Se(e), this.pipe = new N(u), this.pipe.fin.uniforms.uBg.value.copy(this.bg), this.sketch = new R(u), this.sketch.setBackground(this.bg), this.ortho = new t.OrthographicCamera(), this.ortho.position.set(0, Math.sin(V), Math.cos(V)).multiplyScalar(2e3), this.ortho.lookAt(0, 0, 0), this.ortho.near = 1e3, this.ortho.far = 3e3, this.persp = new t.PerspectiveCamera(H, 1, 10, 4e4), this.items = n.map((e, t) => this.createItem(e, t)), this.current = 0, this.target = 0, this.active = 0, this.pointer = new t.Vector2(0, 0), this.follow = new t.Vector2(0, 0), this.followVel = new t.Vector2(0, 0), this.timer = new t.Timer(), this.raycaster = new t.Raycaster(), this._box = new t.Box3(), this._v = new t.Vector3(), this.frames = 0, this.resize(), new ResizeObserver(() => this.resize()).observe(e), this.bindPointer(), this.bindVisibility(), this.applyStyle(), this.ready = this.load(), this.loaded = this.ready.then(() => this.rest), u.setAnimationLoop(() => this.tick());
+		u.setPixelRatio(Math.min(devicePixelRatio, 2)), u.debug.checkShaderErrors = !1, u.toneMapping = t.NeutralToneMapping, u.toneMappingExposure = .95, u.shadowMap.enabled = !0, u.shadowMap.autoUpdate = !1, u.shadowMap.type = t.PCFShadowMap, this.canvas = u.domElement, this.canvas.className = "amx-canvas", e.appendChild(this.canvas), this.scene = new t.Scene(), this.pmrem = new t.PMREMGenerator(u), this.key = new t.DirectionalLight(16777215, 2.2), this.key.shadow.mapSize.set(2048, 2048), this.key.shadow.bias = -.0015, this.key.shadow.radius = 16, this.shadowFade = 0, this.hemi = new t.HemisphereLight(16777215, 10134434, .5), this.scene.add(this.key, this.key.target, this.hemi), this.bg = Se(e), this.pipe = new N(u), this.pipe.fin.uniforms.uBg.value.copy(this.bg), this.sketch = new R(u), this.sketch.setBackground(this.bg), this.ortho = new t.OrthographicCamera(), this.ortho.position.set(0, Math.sin(V), Math.cos(V)).multiplyScalar(2e3), this.ortho.lookAt(0, 0, 0), this.ortho.near = 1e3, this.ortho.far = 3e3, this.persp = new t.PerspectiveCamera(H, 1, 10, 4e4), this.items = n.map((e, t) => this.createItem(e, t)), this.current = 0, this.target = 0, this.active = 0, this.pointer = new t.Vector2(0, 0), this.follow = new t.Vector2(0, 0), this.followVel = new t.Vector2(0, 0), this.timer = new t.Timer(), this.raycaster = new t.Raycaster(), this._box = new t.Box3(), this._box2 = new t.Box3(), this._m = new t.Matrix4(), this._v2 = new t.Vector3(), this._v = new t.Vector3(), this.frames = 0, this.resize(), new ResizeObserver(() => this.resize()).observe(e), this.bindPointer(), this.bindVisibility(), this.applyStyle(), this.ready = this.load(), this.loaded = this.ready.then(() => this.rest), u.setAnimationLoop(() => this.tick());
 	}
 	get camera() {
 		return this.style === "color" ? this.persp : this.ortho;
@@ -879,7 +879,7 @@ var we = class {
 	}
 	styleItem(e) {
 		let t = this.style === "color", n = this.style === "sketch";
-		for (let n of e.meshes) n.material = t ? n.userData.real : n.userData.illus, n.castShadow = n.receiveShadow = t && !n.userData.see, n.userData.noCast && (n.castShadow = !1), n.userData.noShadow && (n.castShadow = n.receiveShadow = !1);
+		for (let n of e.meshes) n.material = t ? n.userData.real : n.userData.illus, n.castShadow = n.receiveShadow = t && !n.userData.see, n.userData.noCast && (n.castShadow = !1), n.userData.noShadow && (n.castShadow = n.receiveShadow = !1), n.userData.recv = n.receiveShadow;
 		for (let n of e.catchers) n.visible = t;
 		for (let r of e.edges) r.material = t && r.userData.real || e.edgeMat, r.visible = !n && !r.userData.sketchOnly && (!t || !!r.userData.real);
 	}
@@ -935,7 +935,20 @@ var we = class {
 			bottom: -i,
 			near: i,
 			far: i * 8
-		}), a.updateProjectionMatrix(), this.key.shadow.normalBias = e.root.scale.x * .012, this.key.target.updateMatrixWorld(), this.renderer.shadowMap.needsUpdate = !0;
+		}), a.updateProjectionMatrix(), this.key.shadow.normalBias = e.root.scale.x * .012, this.key.target.updateMatrixWorld(), this.renderer.shadowMap.needsUpdate = !0, this.shadowNeighbours(e, i);
+	}
+	shadowNeighbours(e, n) {
+		let r = this._m.lookAt(this.key.position, this.key.target.position, t.Object3D.DEFAULT_UP).invert(), i = this._v2;
+		for (let t of this.items) {
+			if (!t.built) continue;
+			let a = t === e;
+			if (!a && t.root.visible) {
+				let e = this._box2.setFromObject(t.tilt);
+				a = !0;
+				for (let t = 0; t < 8 && a; t++) i.set(t & 1 ? e.max.x : e.min.x, t & 2 ? e.max.y : e.min.y, t & 4 ? e.max.z : e.min.z).sub(this.key.position).applyMatrix4(r), a = Math.abs(i.x) < n && Math.abs(i.y) < n && -i.z > n && -i.z < n * 8;
+			}
+			for (let e of t.meshes) e.receiveShadow = e.userData.recv && a;
+		}
 	}
 	go(e) {
 		let t = this.items.length;

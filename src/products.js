@@ -384,7 +384,6 @@ function sidingCladding() {
   const rot = Math.PI / 2 - LAP_TILT; // stand up: course step (E, D) -> straight up, face (section +y) -> about world -x
   return [0, 1, 2].map((i) => {
     const m = mesh(geo, mat, edge);
-    m.userData.noAO = true; // AO only: it reads the laps as dark smears; key-light shadows stay, like the other products
     m.rotation.z = rot;
     m.position.set(0, (i - 1) * Math.hypot(LAP_E, LAP_D), 0);
     // exploded: each course lifts straight up off the one below, easing out from the wall on the way
