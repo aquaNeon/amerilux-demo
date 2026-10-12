@@ -137,11 +137,10 @@ var b = {
 };
 function x(n, r, i, { thick: o, pitch: c, skins: u, rib: f, cross: p, catchShadow: m }) {
 	let h = new e.Group(), g = l(i, .5, ["y", "thin"]);
-	for (let [t, i] of u) {
-		let s = d(new e.BoxGeometry(n, Math.max(i, b.skin) * a, r), g);
-		s.position.y = (t - o / 2) * a, h.add(s);
-	}
-	if (m) {
+	if (u.forEach(([t, i], s) => {
+		let c = d(new e.BoxGeometry(n, Math.max(i, b.skin) * a, r), g);
+		c.position.y = (t - o / 2) * a, s < u.length - 1 && (c.userData.noCast = !0), h.add(c);
+	}), m) {
 		let t = new e.Mesh(new e.PlaneGeometry(n, r), new e.ShadowMaterial({
 			opacity: m,
 			depthWrite: !1
@@ -169,7 +168,7 @@ function x(n, r, i, { thick: o, pitch: c, skins: u, rib: f, cross: p, catchShado
 		opacity: .16,
 		depthWrite: !1
 	}), `rib-${i}`, ["x", "thin"]), S = d(t(y), x);
-	S.userData.edges = "none";
+	S.userData.edges = "none", S.userData.noCast = !0;
 	let C = Math.max(1, Math.ceil(.6 / (c * a))), w = [];
 	for (let e = 0; e <= _; e += C) {
 		let t = v + e * c * a, n = o / 2 * a, i = r / 2;

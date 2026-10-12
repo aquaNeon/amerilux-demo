@@ -186,10 +186,11 @@ export class Stage {
     // environment maps are built on first use of their style (each is a PMREM render)
     this.pmrem = new THREE.PMREMGenerator(r);
     this.key = new THREE.DirectionalLight(0xffffff, 2.2);
-    this.key.shadow.mapSize.set(1024, 1024); // re-rendered + blurred every frame while the product sways
+    // 2048: at 1024 the edge where a part nearly touches the one below stair-steps (siding laps)
+    this.key.shadow.mapSize.set(2048, 2048);
     this.key.shadow.bias = -0.0003;
-    this.key.shadow.radius = 14; // VSM blur (texels): soft edges, and no stair-stepping as the product sways
-    this.key.shadow.blurSamples = 12;
+    this.key.shadow.radius = 28; // VSM blur (texels): soft edges, and no stair-stepping as the product sways
+    this.key.shadow.blurSamples = 16;
     this.shadowFade = 0; // 0 during the active product's entrance, then fades to 1
     this.hemi = new THREE.HemisphereLight(0xffffff, 0x9aa3a2, 0.5);
     this.scene.add(this.key, this.key.target, this.hemi);
@@ -573,6 +574,15 @@ export class Stage {
     if (this.pipe.ss > 1 && this.style === 'color') {
       this.pipe.ss = 1;
       this.pipe.setSize(...this.pipe.size);
+    } else if (this.key.shadow.mapSize.x > 1024 && this.style === 'color') {
+      // shadow render + blur at 2048 is the next costliest pass; 1024 stair-steps a little where parts
+      // nearly touch, but stays soft
+      this.key.shadow.mapSize.set(1024, 1024);
+      this.key.shadow.radius = 14;
+      this.key.shadow.blurSamples = 12;
+      this.key.shadow.map?.dispose();
+      this.key.shadow.mapPass?.dispose();
+      this.key.shadow.map = this.key.shadow.mapPass = null;
     } else if (this.renderer.getPixelRatio() > 1) {
       this.renderer.setPixelRatio(1);
       this.resize();
@@ -660,6 +670,7 @@ export class Stage {
       const settled = act.built && act.appear > 0.99;
       this.shadowFade = settled ? Math.min(1, this.shadowFade + dt / SHADOW_IN) : 0;
       this.key.shadow.intensity = ease(this.shadowFade);
+      // every frame: a shadow map even a frame old makes the swaying product shade itself
       if (this.shadowFade > 0) this.fitShadow(act);
       this.pipe.render(this.scene, this.persp, { aoRadius: 34 * this.scale, ao: 1.6, time: t });
     } else {

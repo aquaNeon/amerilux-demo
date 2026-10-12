@@ -146,11 +146,13 @@ const VIS = { skin: 0.6, rib: 0.5 };
 function multiwallSheet(width, length, tint, { thick, pitch, skins, rib, cross, catchShadow }) {
   const g = new THREE.Group();
   const skinMat = polyMaterial(tint, 0.5, ['y', 'thin']);
-  for (const [y, t] of skins) {
+  skins.forEach(([y, t], i) => {
     const m = mesh(new THREE.BoxGeometry(width, Math.max(t, VIS.skin) * MM, length), skinMat);
     m.position.y = (y - thick / 2) * MM;
+    // only the top skin casts (opal): layers a hair apart inside one sheet make it shade itself
+    if (i < skins.length - 1) m.userData.noCast = true;
     g.add(m);
-  }
+  });
   if (catchShadow) {
     // a see-through skin barely shows a shadow (it is mostly what is behind it), so a shadow-only plane
     // on top carries it: the opal sheet above looks solid and should shade the bronze one
@@ -184,6 +186,7 @@ function multiwallSheet(width, length, tint, { thick, pitch, skins, rib, cross, 
   const ribMat = withFinish(new THREE.MeshBasicMaterial({ color: 0x1f2a28, transparent: true, opacity: 0.16, depthWrite: false }), `rib-${tint}`, ['x', 'thin']);
   const ribMesh = mesh(mergeGeometries(ribs), ribMat);
   ribMesh.userData.edges = 'none';
+  ribMesh.userData.noCast = true;
   // sketch linework: one line per rib along its top plus a tick at each cut end, and only every k-th rib
   // so lines stay >= ~0.6 in apart (dense ribs drawn as boxes moire into TV stripes)
   const k = Math.max(1, Math.ceil(0.6 / (pitch * MM)));
