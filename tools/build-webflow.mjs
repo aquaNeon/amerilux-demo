@@ -65,16 +65,16 @@ const tab = ([slug, name, text], fill) => `      <div class="three_tab" data-amx
           </div>
         </div>
       </div>`;
-// strip: one item per product, only the open one shows. The button component links to the product
-// page, which also lets the script leave the current product out
-const item = ([slug, name, text], fill) => `    <div class="other_item" data-amx-item="${slug}">
+// strip: one item per product, only the open one shows. The one shared button (data-amx-cta) takes the
+// open item's data-amx-href and data-amx-cta-text; the href also lets the script leave the current product out
+const item = ([slug, name, text], fill) => `    <div class="other_item" data-amx-item="${slug}" data-amx-href="${pageOf(slug)}" data-amx-cta-text="Explore ${name}">
       <div class="other_caption">
         ${wrap('other_item_title_wrap', `<h3 class="pv_tab_name">${name}</h3>`, fill)}
         ${wrap('other_item_text_wrap', `<p class="pv_tab_text">${text}</p>`, fill)}
       </div>
-      ${wrap('other_actions_wrap', `<a class="pv_cta" href="${pageOf(slug)}">Explore ${name}</a>`, fill)}
     </div>`;
 const PREVIEW_FILL = {
+  other_actions_wrap: '<a class="pv_cta" href="#">Explore</a>',
   other_eyebrow_wrap: '<div class="pv_eyebrow">Our products</div>',
   other_title_wrap: '<h2 class="pv_title">Other products to consider</h2>',
   other_text_wrap: '<p class="pv_tab_text">If your build calls for more than one material, AmeriLux has the sheets, accessories, and expertise to handle it. Reach out and see how our extensive range and people-first approach can make a real difference.</p>',
@@ -239,8 +239,8 @@ ${variants.map((v) => `<div class="row"><div><b>${v.label}</b><p>${v.note}</p></
   <li>Classes carry no styles: everything is in the CSS embed (first child), styled like the demo. <code>three_wrap</code> is the section; delete the old empty <code>three_wrap</code> section in the site.</li>
   <li>Drop the site's components into the empty wraps: <code>three_eyebrow_wrap</code>, <code>three_title_wrap</code>, <code>three_text_wrap</code>, and per tab <code>three_tab_title_wrap</code> (product name: the collapsed row and the open title), <code>three_tab_text_wrap</code>, <code>three_tab_actions_wrap</code> (button).</li>
   <li>The JS embed (last child) loads the slider from jsDelivr at commit <code>${commit.slice(0, 7)}</code>; three.js and the models load when the section nears the viewport.</li>
-  <li>Strip (<code>other_wrap</code>, product template, its own component): drop components into <code>other_eyebrow_wrap</code>, <code>other_title_wrap</code>, <code>other_text_wrap</code>, and per item <code>other_item_title_wrap</code>, <code>other_item_text_wrap</code>, <code>other_actions_wrap</code> (button linking to that product's page). Only the open item's copy and button show.</li>
-  <li>Leave the current product out of the strip: on the product template, add the custom attribute <code>data-amx-current</code> to any element (e.g. a page wrapper, outside the component) and bind its value to the Products Categories Slug (<code>sliding-cladding</code> is understood as <code>siding-cladding</code>). Backup: an item whose button links to the current page is left out too.</li>
+  <li>Strip (<code>other_wrap</code>, product template, its own component): drop components into <code>other_eyebrow_wrap</code>, <code>other_title_wrap</code>, <code>other_text_wrap</code>, and per item <code>other_item_title_wrap</code>, <code>other_item_text_wrap</code>. ONE button: drop it into <code>other_actions_wrap</code> (outside the items); the script sets its link and label from the open item's <code>data-amx-href</code> and <code>data-amx-cta-text</code> attributes (edit those on each <code>other_item</code>).</li>
+  <li>Leave the current product out of the strip: on the product template, add the custom attribute <code>data-amx-current</code> to any element (e.g. a page wrapper, outside the component) and bind its value to the Products Categories Slug (<code>sliding-cladding</code> is understood as <code>siding-cladding</code>). Backup: an item whose <code>data-amx-href</code> is the current page is left out too.</li>
   <li>Tab / item order = carousel order. Each tab's / item's <code>data-amx-item</code> must stay one of: ${SLUGS.map((s) => `<code>${s}</code>`).join(', ')}.</li>
   <li>Thumbnails are Image elements: set an image (or link it to a component property) to use it, or leave Webflow's placeholder and the script renders one from the 3D.</li>
   <li>The 3D, the open tab and the arrows only work on the published site (or Preview): scripts don't run in the Designer canvas.</li>
@@ -269,7 +269,7 @@ const siteCss = [...site.matchAll(/<link href="(https:\/\/cdn\.prod\.website-fil
 // the site's global CSS embeds: whole <style> blocks only (an embed can contain other markup)
 const siteEmbeds = [...site.matchAll(/<div class="u-embed-css w-embed">\s*(<style>[\s\S]*?<\/style>)/g)].map((m) => m[1]).join('\n');
 const preview = (file) => build(file, true)
-  .replace(/<div class="((?:three|other)_[a-z_]+_wrap)"><\/div>/g, (m, c) => `<div class="${c}">${PREVIEW_FILL[c] || ''}</div>`)
+  .replace(/<div class="((?:three|other)_[a-z_]+_wrap)"([^>]*)><\/div>/g, (m, c, at) => `<div class="${c}"${at}>${PREVIEW_FILL[c] || ''}</div>`)
   .replace(/<wf-embed class="u-embed-js">[\s\S]*?<\/wf-embed>/, '<div class="u-embed-js w-embed"><script type="module" src="../../cdn/amerilux-3d.js"></script></div>')
   .replace(/<wf-embed(?:\s+class="([^"]*)")?>([\s\S]*?)<\/wf-embed>/g, (m, c, html) => `<div class="${c} w-embed">${html}</div>`)
   .replace(/<img class="three_tab_thumb"/g, `<img class="three_tab_thumb" src="${PLACEHOLDER}"`);

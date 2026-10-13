@@ -15,7 +15,9 @@
 //   data-amx-center-x / data-amx-center-y (0-1, active slot position in the stage, default per layout),
 //   data-amx-style ("color" | "mono" | "sketch", initial visual style).
 //   [data-amx-set-style="<style>"] buttons switch style; the active one gets .is-active.
-// Items whose link (any a[href] inside) points at the current page are left out, so the
+// [data-amx-cta] one shared button (a link, or a wrap around the site's button component): takes the
+//   open item's data-amx-href and data-amx-cta-text (its label element is found by its text).
+// Items whose link (data-amx-href, or any a[href] inside) points at the current page are left out, so the
 // product-page instance never shows the product you are on. Items with no 3D model are left out too.
 // Emits `amx:change` on the root with detail { index, slug }; exposes root.amerilux.go(i)
 // and root.amerilux.setStyle(s)
@@ -47,11 +49,26 @@ function prune(root) {
   for (const el of document.querySelectorAll('[data-amx-current]')) skip.push(slugOf(el.dataset.amxCurrent));
   const here = path(location.href);
   for (const el of root.querySelectorAll('[data-amx-item]')) {
-    const a = el.querySelector('a[href]:not([href="#"]):not([href=""])');
-    if (skip.includes(el.dataset.amxItem) || (a && path(a.getAttribute('href')) === here)) drop(el);
+    const href = el.dataset.amxHref || el.querySelector('a[href]:not([href="#"]):not([href=""])')?.getAttribute('href');
+    if (skip.includes(el.dataset.amxItem) || (href && path(href) === here)) drop(el);
   }
 }
 const drop = (el) => { el.style.display = 'none'; el.dataset.amxDropped = ''; };
+
+// the shared button: returns a function that points it at an item
+function cta(root) {
+  const el = root.querySelector('[data-amx-cta]');
+  if (!el) return () => {};
+  const a = el.closest('a') || el.querySelector('a');
+  // the label is the last element with its own text (no attributes needed inside the component)
+  const ownText = (n) => [...n.childNodes].find((t) => t.nodeType === 3 && t.textContent.trim());
+  const label = [el, ...el.querySelectorAll('*')].reverse().find(ownText);
+  return (item) => {
+    const { amxHref: href, amxCtaText: text } = item?.dataset || {};
+    if (href && a) a.setAttribute('href', href);
+    if (text && label) ownText(label).textContent = text;
+  };
+}
 
 // three.js + models load only once the section approaches the viewport
 async function init(root) {
@@ -75,15 +92,18 @@ async function init(root) {
     centerY: num(root.dataset.amxCenterY),
     onChange: (index) => {
       tabs.set(index);
+      setCta(tabs.items[index]);
       root.dispatchEvent(new CustomEvent('amx:change', { detail: { index, slug: slugs[index] } }));
     },
     onBuilt: (i) => idle(() => thumb(i)),
   });
+  const setCta = cta(root);
   const thumb = (i) => tabs.fillThumb(i, (k) => stage.snapshot(k));
 
   onPress(root.querySelector('[data-amx-prev]'), () => stage.next(-1));
   onPress(root.querySelector('[data-amx-next]'), () => stage.next(1));
   tabs.set(0);
+  setCta(tabs.items[0]);
 
   const styleBtns = [...root.querySelectorAll('[data-amx-set-style]')];
   const setStyle = (s) => {

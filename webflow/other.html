@@ -3,9 +3,11 @@
   A separate component from the home slider (webflow/section.html), for the product template.
   Layout matches Figma 14172:51607. Same rules as section.html: text and buttons are empty *_wrap divs
   for the site's components, one class per element, all styling in the CSS embed.
-  Only the open item (.is-active, set by the script) shows its title, text and button.
-  The current product is left out: bind data-amx-current on the template to the CMS slug, or let the
-  button link to the current page (see src/amerilux-3d.js).
+  Only the open item (.is-active, set by the script) shows its title and text. There is one button
+  (other_actions_wrap, data-amx-cta): the script sets its link and label from the open item's
+  data-amx-href and data-amx-cta-text.
+  The current product is left out: bind data-amx-current on the template to the CMS slug, or by the
+  item's data-amx-href matching the current page (see src/amerilux-3d.js).
   __ITEMS__ is filled from TABS in the build script; __JS_SRC__ with the jsDelivr URL of the cdn/ build.
 -->
 <section class="other_wrap" data-amx-root data-amx-layout="strip">
@@ -73,6 +75,7 @@
   <div class="other_items">
 __ITEMS__
   </div>
+  <div class="other_actions_wrap" data-amx-cta></div>
   <div class="other_nav">
     <div class="other_nav_btn" data-amx-prev aria-label="Previous product"><div class="other_nav_icon"></div></div>
     <div class="other_nav_btn" data-amx-next aria-label="Next product"><div class="other_nav_icon"></div></div>
