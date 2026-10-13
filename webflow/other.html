@@ -43,8 +43,9 @@
 .other_caption, .other_actions_wrap, .other_nav { position: absolute; bottom: 34px; z-index: 1; }
 .other_caption { left: 35px; width: 300px; display: flex; flex-direction: column; gap: 16px; pointer-events: none; }
 .other_actions_wrap { right: 161px; width: 318px; }
-/* the site's button component fills the slot (its own min-width would overflow on small screens) */
-.other_actions_wrap > * { width: 100%; min-width: 0; }
+/* the site's button component fills the slot (its own min-width would overflow on small screens),
+   as tall as the arrows */
+.other_actions_wrap > * { width: 100%; min-width: 0; height: 66px; }
 
 .other_nav { right: 38px; display: flex; gap: 7px; }
 .other_nav_btn {
