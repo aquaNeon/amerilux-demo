@@ -41,6 +41,9 @@ const TABS = [
   ['specialty-products', 'Specialty Products', 'Window wells and clear polycarbonate window well covers, fabricated to fit.'],
 ];
 const SLUGS = TABS.map((t) => t[0]);
+// product pages: /products-categories/<CMS slug>; the CMS spells siding "sliding-cladding" (the script maps it)
+const CMS_SLUG = { 'siding-cladding': 'sliding-cladding' };
+const pageOf = (slug) => `/products-categories/${CMS_SLUG[slug] || slug}`;
 // fill: preview only, puts demo copy into the wraps (Webflow gets them empty for the site's components)
 const wrap = (cls, html, fill) => `<div class="${cls}">${fill ? html : ''}</div>`;
 // one name per tab: the head row is the collapsed row and the open title
@@ -69,7 +72,7 @@ const item = ([slug, name, text], fill) => `    <div class="other_item" data-amx
         ${wrap('other_item_title_wrap', `<h3 class="pv_tab_name">${name}</h3>`, fill)}
         ${wrap('other_item_text_wrap', `<p class="pv_tab_text">${text}</p>`, fill)}
       </div>
-      ${wrap('other_actions_wrap', `<a class="pv_cta" href="/products/${slug}">Explore ${name}</a>`, fill)}
+      ${wrap('other_actions_wrap', `<a class="pv_cta" href="${pageOf(slug)}">Explore ${name}</a>`, fill)}
     </div>`;
 const PREVIEW_FILL = {
   other_eyebrow_wrap: '<div class="pv_eyebrow">Our products</div>',
@@ -237,7 +240,7 @@ ${variants.map((v) => `<div class="row"><div><b>${v.label}</b><p>${v.note}</p></
   <li>Drop the site's components into the empty wraps: <code>three_eyebrow_wrap</code>, <code>three_title_wrap</code>, <code>three_text_wrap</code>, and per tab <code>three_tab_title_wrap</code> (product name: the collapsed row and the open title), <code>three_tab_text_wrap</code>, <code>three_tab_actions_wrap</code> (button).</li>
   <li>The JS embed (last child) loads the slider from jsDelivr at commit <code>${commit.slice(0, 7)}</code>; three.js and the models load when the section nears the viewport.</li>
   <li>Strip (<code>other_wrap</code>, product template, its own component): drop components into <code>other_eyebrow_wrap</code>, <code>other_title_wrap</code>, <code>other_text_wrap</code>, and per item <code>other_item_title_wrap</code>, <code>other_item_text_wrap</code>, <code>other_actions_wrap</code> (button linking to that product's page). Only the open item's copy and button show.</li>
-  <li>Leave the current product out of the strip: on the product template, add the custom attribute <code>data-amx-current</code> to any element (e.g. a page wrapper, outside the component) and bind its value to the CMS Slug, which must be one of the slugs below. Backup: an item whose button links to the current page is left out too.</li>
+  <li>Leave the current product out of the strip: on the product template, add the custom attribute <code>data-amx-current</code> to any element (e.g. a page wrapper, outside the component) and bind its value to the Products Categories Slug (<code>sliding-cladding</code> is understood as <code>siding-cladding</code>). Backup: an item whose button links to the current page is left out too.</li>
   <li>Tab / item order = carousel order. Each tab's / item's <code>data-amx-item</code> must stay one of: ${SLUGS.map((s) => `<code>${s}</code>`).join(', ')}.</li>
   <li>Thumbnails are Image elements: set an image (or link it to a component property) to use it, or leave Webflow's placeholder and the script renders one from the 3D.</li>
   <li>The 3D, the open tab and the arrows only work on the published site (or Preview): scripts don't run in the Designer canvas.</li>

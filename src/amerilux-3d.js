@@ -35,12 +35,16 @@ const CSS = `
 // one thumbnail per idle moment: each is a full offscreen render + pixel readback
 const idle = (fn) => (window.requestIdleCallback ? requestIdleCallback(fn, { timeout: 500 }) : setTimeout(fn, 30));
 
+// CMS slugs that differ from ours (the Webflow collection has the typo "sliding-cladding")
+const ALIAS = { 'sliding-cladding': 'siding-cladding' };
+const slugOf = (v) => ALIAS[v.trim()] || v.trim();
+
 const path = (href) => new URL(href, location.href).pathname.replace(/\/+$/, '') || '/';
 
 // runs on page load, before any 3D, so excluded items never flash
 function prune(root) {
-  const skip = (root.dataset.amxExclude || '').split(',').map((v) => v.trim()).filter(Boolean);
-  for (const el of document.querySelectorAll('[data-amx-current]')) skip.push(el.dataset.amxCurrent.trim());
+  const skip = (root.dataset.amxExclude || '').split(',').filter((v) => v.trim()).map(slugOf);
+  for (const el of document.querySelectorAll('[data-amx-current]')) skip.push(slugOf(el.dataset.amxCurrent));
   const here = path(location.href);
   for (const el of root.querySelectorAll('[data-amx-item]')) {
     const a = el.querySelector('a[href]:not([href="#"]):not([href=""])');

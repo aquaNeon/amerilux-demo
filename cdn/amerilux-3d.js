@@ -27,26 +27,26 @@ var t = class {
 			e && (n.src = e, n.dataset.amxGen = "");
 		});
 	}
-}, n = new URL("./models/", "" + import.meta.url).href, r = new URL("./textures/", "" + import.meta.url).href, i = "\n:where([data-amx-stage]){position:relative}\n[data-amx-stage]{touch-action:pan-y}\n.amx-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab;outline:none}\n.amx-canvas.is-dragging{cursor:grabbing}\n[data-amx-root][data-amx-style=\"mono\"] [data-amx-thumb]:not([data-amx-gen]){filter:grayscale(1)}", a = (e) => window.requestIdleCallback ? requestIdleCallback(e, { timeout: 500 }) : setTimeout(e, 30), o = (e) => new URL(e, location.href).pathname.replace(/\/+$/, "") || "/";
-function s(e) {
-	let t = (e.dataset.amxExclude || "").split(",").map((e) => e.trim()).filter(Boolean);
-	for (let e of document.querySelectorAll("[data-amx-current]")) t.push(e.dataset.amxCurrent.trim());
-	let n = o(location.href);
+}, n = new URL("./models/", "" + import.meta.url).href, r = new URL("./textures/", "" + import.meta.url).href, i = "\n:where([data-amx-stage]){position:relative}\n[data-amx-stage]{touch-action:pan-y}\n.amx-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab;outline:none}\n.amx-canvas.is-dragging{cursor:grabbing}\n[data-amx-root][data-amx-style=\"mono\"] [data-amx-thumb]:not([data-amx-gen]){filter:grayscale(1)}", a = (e) => window.requestIdleCallback ? requestIdleCallback(e, { timeout: 500 }) : setTimeout(e, 30), o = { "sliding-cladding": "siding-cladding" }, s = (e) => o[e.trim()] || e.trim(), c = (e) => new URL(e, location.href).pathname.replace(/\/+$/, "") || "/";
+function l(e) {
+	let t = (e.dataset.amxExclude || "").split(",").filter((e) => e.trim()).map(s);
+	for (let e of document.querySelectorAll("[data-amx-current]")) t.push(s(e.dataset.amxCurrent));
+	let n = c(location.href);
 	for (let r of e.querySelectorAll("[data-amx-item]")) {
 		let e = r.querySelector("a[href]:not([href=\"#\"]):not([href=\"\"])");
-		(t.includes(r.dataset.amxItem) || e && o(e.getAttribute("href")) === n) && c(r);
+		(t.includes(r.dataset.amxItem) || e && c(e.getAttribute("href")) === n) && u(r);
 	}
 }
-var c = (e) => {
+var u = (e) => {
 	e.style.display = "none", e.dataset.amxDropped = "";
 };
-async function l(i) {
+async function d(i) {
 	if (i.amerilux) return i.amerilux;
-	let [{ Stage: o }, { PRODUCTS: s }] = await Promise.all([import("./amerilux-stage.js"), import("./amerilux-products.js")]), l = i.querySelector("[data-amx-stage]") || i, u = [...i.querySelectorAll("[data-amx-item]:not([data-amx-dropped])")];
-	u.filter((e) => !s[e.dataset.amxItem]).forEach(c);
-	let d = new t(u.filter((e) => s[e.dataset.amxItem]), { onSelect: (e) => h.go(e) }), f = d.slugs.length ? d.slugs : Object.keys(s), p = (e) => e == null || e === "" ? void 0 : +e, m = i.dataset.amxLayout || getComputedStyle(i).getPropertyValue("--amx-layout").trim() || "hero";
+	let [{ Stage: o }, { PRODUCTS: s }] = await Promise.all([import("./amerilux-stage.js"), import("./amerilux-products.js")]), c = i.querySelector("[data-amx-stage]") || i, l = [...i.querySelectorAll("[data-amx-item]:not([data-amx-dropped])")];
+	l.filter((e) => !s[e.dataset.amxItem]).forEach(u);
+	let d = new t(l.filter((e) => s[e.dataset.amxItem]), { onSelect: (e) => h.go(e) }), f = d.slugs.length ? d.slugs : Object.keys(s), p = (e) => e == null || e === "" ? void 0 : +e, m = i.dataset.amxLayout || getComputedStyle(i).getPropertyValue("--amx-layout").trim() || "hero";
 	i.dataset.amxLayout = m;
-	let h = new o(l, {
+	let h = new o(c, {
 		slugs: f,
 		layout: m,
 		modelBase: i.dataset.amxModels || n,
@@ -75,18 +75,18 @@ async function l(i) {
 		setStyle: v
 	}, i.amerilux;
 }
-function u() {
+function f() {
 	if (!document.getElementById("amx-style")) {
 		let e = document.createElement("style");
 		e.id = "amx-style", e.textContent = i, document.head.appendChild(e);
 	}
 	let e = new IntersectionObserver((t) => t.forEach((t) => {
-		t.isIntersecting && (e.unobserve(t.target), l(t.target));
+		t.isIntersecting && (e.unobserve(t.target), d(t.target));
 	}), { rootMargin: "400px 0px" });
 	document.querySelectorAll("[data-amx-root]").forEach((t) => {
-		s(t), e.observe(t);
+		l(t), e.observe(t);
 	});
 }
-document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", u) : u();
+document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", f) : f();
 //#endregion
-export { l as init };
+export { d as init };
