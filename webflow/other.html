@@ -57,15 +57,19 @@
 .other_nav_icon { width: 6px; height: 12px; background-color: var(--other-ink); clip-path: polygon(0 0, 100% 50%, 0 100%); }
 [data-amx-prev] .other_nav_icon { transform: scaleX(-1); }
 
-/* ---- small screens (not in Figma): taller strip, copy on top, full-width button at the bottom,
-   arrows above it on the right ---- */
+/* ---- small screens (not in Figma): taller strip, copy on top, button and arrows in a row at the bottom ---- */
 @container other (width < 900px) {
   .other_wrap { padding-block: 56px; }
   .other_header { padding: 0 20px 24px; }
   .other_strip { height: 560px; margin: 24px 20px 0; }
   .other_caption { left: 20px; top: 24px; bottom: auto; width: calc(100% - 40px); }
-  .other_actions_wrap { left: 20px; right: 20px; bottom: 20px; width: auto; }
-  .other_nav { right: 20px; bottom: 98px; }
+  .other_actions_wrap { left: 20px; right: 132px; bottom: 24px; width: auto; }
+  .other_nav { right: 20px; bottom: 24px; }
+}
+/* too narrow for the button (min 288px) beside the arrows: full-width button, arrows above it */
+@container other (width < 480px) {
+  .other_actions_wrap { right: 20px; bottom: 20px; }
+  .other_nav { bottom: 98px; }
 }
 </style></wf-embed>
 <div class="other_header">
