@@ -11,7 +11,7 @@
 //     so a Webflow component variant can switch it), default "hero",
 //   data-amx-exclude (comma-separated slugs to leave out),
 // [data-amx-current="<slug>"] anywhere on the page (e.g. bound to the CMS slug on the product template)
-//   leaves that product out of every carousel on the page.
+//   leaves that product out of every carousel on the page, which then starts on the product after it.
 //   data-amx-center-x / data-amx-center-y (0-1, active slot position in the stage, default per layout),
 //   data-amx-style ("color" | "mono" | "sketch", initial visual style).
 //   [data-amx-set-style="<style>"] buttons switch style; the active one gets .is-active.
@@ -48,10 +48,15 @@ function prune(root) {
   const skip = (root.dataset.amxExclude || '').split(',').filter((v) => v.trim()).map(slugOf);
   for (const el of document.querySelectorAll('[data-amx-current]')) skip.push(slugOf(el.dataset.amxCurrent));
   const here = path(location.href);
-  for (const el of root.querySelectorAll('[data-amx-item]')) {
+  const all = [...root.querySelectorAll('[data-amx-item]')];
+  all.forEach((el, i) => {
     const href = el.dataset.amxHref || el.querySelector('a[href]:not([href="#"]):not([href=""])')?.getAttribute('href');
-    if (skip.includes(el.dataset.amxItem) || (href && path(href) === here)) drop(el);
-  }
+    if (skip.includes(el.dataset.amxItem) || (href && path(href) === here)) {
+      drop(el);
+      // start on the product after the current one, so each product page opens on a different one
+      root.amxStart ??= all[(i + 1) % all.length];
+    }
+  });
 }
 const drop = (el) => { el.style.display = 'none'; el.dataset.amxDropped = ''; };
 
@@ -85,7 +90,11 @@ async function init(root) {
   if (root.amerilux) return root.amerilux;
   const [{ Stage }, { PRODUCTS }] = await Promise.all([import('./stage.js'), import('./products.js')]);
   const stageEl = root.querySelector('[data-amx-stage]') || root;
-  const items = [...root.querySelectorAll('[data-amx-item]:not([data-amx-dropped])')];
+  let items = [...root.querySelectorAll('[data-amx-item]:not([data-amx-dropped])')];
+  // rotate so the start item is first: same ring order, the carousel just opens on it
+  const start = root.amxStart;
+  const first = start ? items.findIndex((el) => el === start || el.compareDocumentPosition(start) & Node.DOCUMENT_POSITION_PRECEDING) : 0;
+  if (first > 0) items = [...items.slice(first), ...items.slice(0, first)];
   items.filter((el) => !PRODUCTS[el.dataset.amxItem]).forEach(drop);
   const tabs = new Tabs(items.filter((el) => PRODUCTS[el.dataset.amxItem]), { onSelect: (i) => stage.go(i) });
   const slugs = tabs.slugs.length ? tabs.slugs : Object.keys(PRODUCTS);

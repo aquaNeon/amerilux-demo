@@ -31,11 +31,11 @@ var t = class {
 function l(e) {
 	let t = (e.dataset.amxExclude || "").split(",").filter((e) => e.trim()).map(s);
 	for (let e of document.querySelectorAll("[data-amx-current]")) t.push(s(e.dataset.amxCurrent));
-	let n = c(location.href);
-	for (let r of e.querySelectorAll("[data-amx-item]")) {
-		let e = r.dataset.amxHref || r.querySelector("a[href]:not([href=\"#\"]):not([href=\"\"])")?.getAttribute("href");
-		(t.includes(r.dataset.amxItem) || e && c(e) === n) && u(r);
-	}
+	let n = c(location.href), r = [...e.querySelectorAll("[data-amx-item]")];
+	r.forEach((i, a) => {
+		let o = i.dataset.amxHref || i.querySelector("a[href]:not([href=\"#\"]):not([href=\"\"])")?.getAttribute("href");
+		(t.includes(i.dataset.amxItem) || o && c(o) === n) && (u(i), e.amxStart ?? (e.amxStart = r[(a + 1) % r.length]));
+	});
 }
 var u = (e) => {
 	e.style.display = "none", e.dataset.amxDropped = "";
@@ -59,37 +59,37 @@ function d(e) {
 }
 async function f(i) {
 	if (i.amerilux) return i.amerilux;
-	let [{ Stage: o }, { PRODUCTS: s }] = await Promise.all([import("./amerilux-stage.js"), import("./amerilux-products.js")]), c = i.querySelector("[data-amx-stage]") || i, l = [...i.querySelectorAll("[data-amx-item]:not([data-amx-dropped])")];
-	l.filter((e) => !s[e.dataset.amxItem]).forEach(u);
-	let f = new t(l.filter((e) => s[e.dataset.amxItem]), { onSelect: (e) => g.go(e) }), p = f.slugs.length ? f.slugs : Object.keys(s), m = (e) => e == null || e === "" ? void 0 : +e, h = i.dataset.amxLayout || getComputedStyle(i).getPropertyValue("--amx-layout").trim() || "hero";
-	i.dataset.amxLayout = h;
-	let g = new o(c, {
-		slugs: p,
-		layout: h,
+	let [{ Stage: o }, { PRODUCTS: s }] = await Promise.all([import("./amerilux-stage.js"), import("./amerilux-products.js")]), c = i.querySelector("[data-amx-stage]") || i, l = [...i.querySelectorAll("[data-amx-item]:not([data-amx-dropped])")], f = i.amxStart, p = f ? l.findIndex((e) => e === f || e.compareDocumentPosition(f) & Node.DOCUMENT_POSITION_PRECEDING) : 0;
+	p > 0 && (l = [...l.slice(p), ...l.slice(0, p)]), l.filter((e) => !s[e.dataset.amxItem]).forEach(u);
+	let m = new t(l.filter((e) => s[e.dataset.amxItem]), { onSelect: (e) => v.go(e) }), h = m.slugs.length ? m.slugs : Object.keys(s), g = (e) => e == null || e === "" ? void 0 : +e, _ = i.dataset.amxLayout || getComputedStyle(i).getPropertyValue("--amx-layout").trim() || "hero";
+	i.dataset.amxLayout = _;
+	let v = new o(c, {
+		slugs: h,
+		layout: _,
 		modelBase: i.dataset.amxModels || n,
 		textureBase: i.dataset.amxTextures || r,
-		centerX: m(i.dataset.amxCenterX),
-		centerY: m(i.dataset.amxCenterY),
+		centerX: g(i.dataset.amxCenterX),
+		centerY: g(i.dataset.amxCenterY),
 		onChange: (e) => {
-			f.set(e), _(f.items[e]), i.dispatchEvent(new CustomEvent("amx:change", { detail: {
+			m.set(e), y(m.items[e]), i.dispatchEvent(new CustomEvent("amx:change", { detail: {
 				index: e,
-				slug: p[e]
+				slug: h[e]
 			} }));
 		},
-		onBuilt: (e) => a(() => v(e))
-	}), _ = d(i), v = (e) => f.fillThumb(e, (e) => g.snapshot(e));
-	e(i.querySelector("[data-amx-prev]"), () => g.next(-1)), e(i.querySelector("[data-amx-next]"), () => g.next(1)), f.set(0), _(f.items[0]);
-	let y = [...i.querySelectorAll("[data-amx-set-style]")], b = (e) => {
-		i.dataset.amxStyle = e, g.setStyle(e), g.items.forEach((e, t) => e.built && a(() => v(t))), y.forEach((t) => {
+		onBuilt: (e) => a(() => b(e))
+	}), y = d(i), b = (e) => m.fillThumb(e, (e) => v.snapshot(e));
+	e(i.querySelector("[data-amx-prev]"), () => v.next(-1)), e(i.querySelector("[data-amx-next]"), () => v.next(1)), m.set(0), y(m.items[0]);
+	let x = [...i.querySelectorAll("[data-amx-set-style]")], S = (e) => {
+		i.dataset.amxStyle = e, v.setStyle(e), v.items.forEach((e, t) => e.built && a(() => b(t))), x.forEach((t) => {
 			let n = t.dataset.amxSetStyle === e;
 			t.classList.toggle("is-active", n), t.setAttribute("aria-pressed", n);
 		});
 	};
-	return y.forEach((t) => e(t, () => b(t.dataset.amxSetStyle))), b(i.dataset.amxStyle || "color"), i.amerilux = {
-		stage: g,
-		tabs: f,
-		go: (e) => g.go(e),
-		setStyle: b
+	return x.forEach((t) => e(t, () => S(t.dataset.amxSetStyle))), S(i.dataset.amxStyle || "color"), i.amerilux = {
+		stage: v,
+		tabs: m,
+		go: (e) => v.go(e),
+		setStyle: S
 	}, i.amerilux;
 }
 function p() {
