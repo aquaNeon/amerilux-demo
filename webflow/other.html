@@ -43,6 +43,8 @@
 .other_caption, .other_actions_wrap, .other_nav { position: absolute; bottom: 34px; z-index: 1; }
 .other_caption { left: 35px; width: 300px; display: flex; flex-direction: column; gap: 16px; pointer-events: none; }
 .other_actions_wrap { right: 161px; width: 318px; }
+/* the site's button component fills the slot (its own min-width would overflow on small screens) */
+.other_actions_wrap > * { width: 100%; min-width: 0; }
 
 .other_nav { right: 38px; display: flex; gap: 7px; }
 .other_nav_btn {
@@ -55,14 +57,15 @@
 .other_nav_icon { width: 6px; height: 12px; background-color: var(--other-ink); clip-path: polygon(0 0, 100% 50%, 0 100%); }
 [data-amx-prev] .other_nav_icon { transform: scaleX(-1); }
 
-/* ---- small screens (not in Figma): taller strip, copy above the button row ---- */
+/* ---- small screens (not in Figma): taller strip, copy on top, full-width button at the bottom,
+   arrows above it on the right ---- */
 @container other (width < 900px) {
   .other_wrap { padding-block: 56px; }
   .other_header { padding: 0 20px 24px; }
   .other_strip { height: 560px; margin: 24px 20px 0; }
   .other_caption { left: 20px; top: 24px; bottom: auto; width: calc(100% - 40px); }
-  .other_actions_wrap { left: 20px; right: 132px; bottom: 24px; width: auto; }
-  .other_nav { right: 20px; bottom: 24px; }
+  .other_actions_wrap { left: 20px; right: 20px; bottom: 20px; width: auto; }
+  .other_nav { right: 20px; bottom: 98px; }
 }
 </style></wf-embed>
 <div class="other_header">
