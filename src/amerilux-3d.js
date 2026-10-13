@@ -59,14 +59,24 @@ const drop = (el) => { el.style.display = 'none'; el.dataset.amxDropped = ''; };
 function cta(root) {
   const el = root.querySelector('[data-amx-cta]');
   if (!el) return () => {};
-  const a = el.closest('a') || el.querySelector('a');
-  // the label is the last element with its own text (no attributes needed inside the component)
+  let a = el.closest('a') || el.querySelector('a');
+  // a button component with no link set renders its click layer as a <button> (browser-grey, on top):
+  // swap it for a link
+  const btn = !a && el.querySelector('button');
+  if (btn) {
+    a = document.createElement('a');
+    for (const { name, value } of btn.attributes) if (name !== 'type') a.setAttribute(name, value);
+    a.append(...btn.childNodes);
+    btn.replaceWith(a);
+  }
+  // labels: every element with its own text (the visible one and the screen-reader copy); no
+  // attributes needed inside the component
   const ownText = (n) => [...n.childNodes].find((t) => t.nodeType === 3 && t.textContent.trim());
-  const label = [el, ...el.querySelectorAll('*')].reverse().find(ownText);
+  const labels = [el, ...el.querySelectorAll('*')].filter(ownText);
   return (item) => {
     const { amxHref: href, amxCtaText: text } = item?.dataset || {};
     if (href && a) a.setAttribute('href', href);
-    if (text && label) ownText(label).textContent = text;
+    if (text) labels.forEach((n) => { ownText(n).textContent = text; });
   };
 }
 

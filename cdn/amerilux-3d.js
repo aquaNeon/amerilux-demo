@@ -43,10 +43,18 @@ var u = (e) => {
 function d(e) {
 	let t = e.querySelector("[data-amx-cta]");
 	if (!t) return () => {};
-	let n = t.closest("a") || t.querySelector("a"), r = (e) => [...e.childNodes].find((e) => e.nodeType === 3 && e.textContent.trim()), i = [t, ...t.querySelectorAll("*")].reverse().find(r);
+	let n = t.closest("a") || t.querySelector("a"), r = !n && t.querySelector("button");
+	if (r) {
+		n = document.createElement("a");
+		for (let { name: e, value: t } of r.attributes) e !== "type" && n.setAttribute(e, t);
+		n.append(...r.childNodes), r.replaceWith(n);
+	}
+	let i = (e) => [...e.childNodes].find((e) => e.nodeType === 3 && e.textContent.trim()), a = [t, ...t.querySelectorAll("*")].filter(i);
 	return (e) => {
-		let { amxHref: t, amxCtaText: a } = e?.dataset || {};
-		t && n && n.setAttribute("href", t), a && i && (r(i).textContent = a);
+		let { amxHref: t, amxCtaText: r } = e?.dataset || {};
+		t && n && n.setAttribute("href", t), r && a.forEach((e) => {
+			i(e).textContent = r;
+		});
 	};
 }
 async function f(i) {
