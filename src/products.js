@@ -24,6 +24,7 @@ export const TINT = {
   core: 0x202020, // KLAR co-extruded thermoacoustic core
   hdpe: 0x151515,
   cladding: 0xefefef,
+  connector: 0x9a9fa2, // AuraLok: aluminium (no spec given), mid grey in the illustrated styles
   deck: 0xb7b7b7, // Driftwood / Boardwalk Gray
   well: 0xbcbbb5,
 };
@@ -352,13 +353,54 @@ function duxxbakSection() {
 function decking() {
   const { outer, holes } = duxxbakSection();
   const { geo, edge } = profile(outer, { holes, depth: 18, bevel: 0.02 });
-  return [0, 1, 2, 3].map((i) => {
+  return [0, 1, 2].map((i) => { // 3 boards (Dakota, 2026-10-16)
     const b = mesh(geo, solidMaterial('deck', 0.8, 'deck'), edge); // own material per board: grain differs
-    b.position.x = (i - 1.5) * DUXX_PITCH;
+    b.position.x = (i - 1) * DUXX_PITCH;
     // exploded: same level, spread apart so the gutter + fin under each joint shows. On the way each board rides
     // higher than the one on its right: the hook has to clear the fin (0.74") before sliding 0.43" over it
-    return { object: b, explode: V((i - 1.5) * 1.6, 0, 0), arc: V(0, (1.5 - i) * 1.1, 0) };
+    return { object: b, explode: V((i - 1) * 1.6, 0, 0), arc: V(0, (1 - i) * 1.1, 0) };
   });
+}
+
+// I.Dekk Traditional S4S, from the vector outline in `1012-I.Dekk-Traditional-S4S-.pdf` (drawn 1:1 in PDF points,
+// 72 pt = 1"; height scaled to the 1-1/4" dimension): 5-1/2" wide, 4 cells, thicker top wall.
+function idekkSection() {
+  const sx = 1 / 72, sy = 1.25 / 91.4;
+  const P = ([x, y, r]) => [(x - 413.9) * sx, (441.7 - y) * sy, r * sx];
+  const outer = [[413.9, 441.7, 18], [809.9, 441.7, 18], [809.9, 350.3, 18], [413.9, 350.3, 18]].map(P);
+  const holes = [[423.2, 510.6], [519.8, 607.3], [616.5, 703.9], [713.2, 800.5]]
+    .map(([a, b]) => [[a, 430.2, 8.6], [b, 430.2, 8.6], [b, 366.8, 8.6], [a, 366.8, 8.6]].map(P));
+  return { outer, holes };
+}
+
+// Optima Dekk grooved (hidden fastener) board, `optima-dekk-drawings.pdf` (raster: 5.400" x 1.065" dimensioned,
+// groove and corner radius read off the image). Solid.
+function optimaSection() {
+  const W = 5.4, H = 1.065, r = 0.17, g0 = 0.25, g1 = 0.54, d = 0.23, c = 0.03;
+  return {
+    outer: [[0, 0, r], [W, 0, r], [W, g0, c], [W - d, g0, c], [W - d, g1, c], [W, g1, c], [W, H, r], [0, H, r],
+      [0, g1, c], [d, g1, c], [d, g0, c], [0, g0, c]],
+    holes: [],
+  };
+}
+
+// Range (demo switch): the spreadsheet's three decking lines side by side, DuxxBak first so its open gutter shows at
+// the end. Bottoms level (same joists), so the thinner Optima sits lower. Exploded: spread apart.
+const DECK_GAP = 0.25;
+function deckingRange() {
+  const boards = [[duxxbakSection(), 'deck'], [idekkSection(), 'deck'], [optimaSection(), 'deck-capstock']];
+  let x = 0;
+  const layers = boards.map(([{ outer, holes }, finish], i) => {
+    const { geo, edge } = profile(outer, { holes, depth: 18, bevel: 0.02 });
+    const xs = outer.map((p) => p[0]), ys = outer.map((p) => p[1]);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs);
+    const b = mesh(geo, solidMaterial('deck', 0.8, finish), edge);
+    b.position.set(x + (x1 - x0) / 2, (Math.min(...ys) + Math.max(...ys)) / 2, 0);
+    x += x1 - x0 + DECK_GAP;
+    return { object: b, explode: V((i - 1) * 1.6, 0, 0) };
+  });
+  for (const l of layers) l.object.position.x -= (x - DECK_GAP) / 2;
+  return layers;
 }
 
 // Elite lap siding, from the vector outline in `Lap-Siding-Technical-Specification_EN.pdf` (PDF points; its 8.31"
@@ -378,18 +420,118 @@ function lapSidingSection() {
 // Courses step 7.00" up the board and 34.3 pt out: the hem then sits in the next course's hook pocket, butting the leg,
 // with the lip resting on the face below. So every course leans back by atan(D / E), bottom kicked out, like on a wall.
 const LAP_E = 7, LAP_D = 34.3 * LAP_S, LAP_TILT = Math.atan2(LAP_D, LAP_E);
-function sidingCladding() {
-  const { geo, edge } = profile(lapSidingSection(), { depth: 22, bevel: 0.014 });
+const LAP_L = 22; // shown course length
+const LAP_JOINT = 0.03; // butt joint gap in the middle course
+
+// AuraLok panel connector at the middle course's butt joint (Dakota, 2026-10-16; Elite's AuraLok drawings, no
+// dimensions given, proportions read off them): two hairpin rails on the back of the panel, one each side of the
+// joint, running from the hook up to the hem, and a channel that slides down over both and holds the ends together.
+// Built in section coordinates (x up the course, y out through the face, z along it), centred like profile().
+const AURA = { railW: 0.36, railWall: 0.08, railH: 0.07, bottom: 2.0, top: 7.7, width: 1.0, plate: 0.06, flange: 0.08, len: 5.4, lift: 1.9 };
+function auralok(pts) {
+  const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+  const c = V((Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2, 0);
+  const back = (379.3 - 344.02) * LAP_S; // back of the face
+  const A = AURA;
+  // shape (u, v) in the back plane -> (x = v, y = back - depth, z = -u)
+  const onBack = new THREE.Matrix4().set(0, 1, 0, -c.x, 0, 0, -1, back - c.y, -1, 0, 0, 0, 0, 0, 0, 1);
+  const hairpin = (u0) => {
+    const loop = (u, w, bot) => roundPts([[u, A.top], [u, bot, w / 2], [u + w, bot, w / 2], [u + w, A.top]], 0, 6);
+    const w = A.railW, t = A.railWall;
+    return shapeFrom(loop(u0, w, A.bottom), [loop(u0 + t, w - 2 * t, A.bottom + t).map(([u, v]) => [u, Math.min(v, A.top - t)])]);
+  };
+  const gap = LAP_JOINT / 2 + 0.02;
+  const rails = new THREE.ExtrudeGeometry([hairpin(gap), hairpin(-gap - A.railW)], { depth: A.railH, bevelEnabled: false, curveSegments: 6 }).applyMatrix4(onBack);
+  // channel section (u, depth from the rail tops): plate behind, flanges wrapping the rails' outer sides
+  const h = A.width / 2, f = A.flange, y0 = back - A.railH;
+  const p = A.plate, r = A.railH;
+  const chan = shapeFrom([[-h, -p], [h, -p], [h, r], [h - f, r], [h - f, 0], [-h + f, 0], [-h + f, r], [-h, r]]);
+  // (u, d, along) -> (x = along, y = y0 + d, z = -u)
+  const along = new THREE.Matrix4().set(0, 0, 1, A.top - A.len - c.x, 0, 1, 0, y0 - c.y, -1, 0, 0, 0, 0, 0, 0, 1);
+  const connector = new THREE.ExtrudeGeometry(chan, { depth: A.len, bevelEnabled: false }).applyMatrix4(along);
+  // invisible hover / tap target, roomier than the thin channel: its whole travel, padded around it
+  const pad = 0.8, x0 = A.bottom - pad, x1 = A.top + A.lift + pad, hw = A.width / 2 + pad, d = 0.4;
+  const hit = new THREE.BoxGeometry(x1 - x0, d, 2 * hw).translate((x0 + x1) / 2 - c.x, back - d / 2 - c.y, 0);
+  return { rails, connector, hit };
+}
+
+// z0: where the wall sits along itself; shift: extra explode along it; joint: AuraLok butt joint in the middle course
+function lapWall(z0 = 0, shift = 0, joint = true) {
+  const pts = lapSidingSection();
+  const { geo, edge } = profile(pts, { depth: LAP_L, bevel: 0.014 });
+  const half = profile(pts, { depth: LAP_L / 2, bevel: 0.014 });
   const mat = solidMaterial('cladding', 0.6, 'cladding');
   const rot = Math.PI / 2 - LAP_TILT; // stand up: course step (E, D) -> straight up, face (section +y) -> about world -x
-  return [0, 1, 2].map((i) => {
-    const m = mesh(geo, mat, edge);
+  const up = V(Math.sin(LAP_TILT), Math.cos(LAP_TILT), 0); // section x after the turn
+  const lay = (m, i, z = 0, lift = 0) => {
     m.rotation.z = rot;
-    m.position.set(0, (i - 1) * Math.hypot(LAP_E, LAP_D), 0);
+    m.position.set(0, (i - 1) * Math.hypot(LAP_E, LAP_D), z0 + z);
     // exploded: each course lifts straight up off the one below, easing out from the wall on the way
-    return { object: m, explode: V(0, (i - 1) * 2.6, 0), arc: V(-0.5, 0, 0) };
+    const l = { object: m, explode: V(0, (i - 1) * 2.6, shift), arc: V(-0.5, 0, 0) };
+    // lift: the lock's own travel up its rails (Stage: rides up while opening, then slides home; hover lifts it)
+    if (lift) l.lift = up.clone().multiplyScalar(lift);
+    return l;
+  };
+  if (!joint) return [0, 1, 2].map((i) => lay(mesh(geo, mat, edge), i));
+  const layers = [0, 2].map((i) => lay(mesh(geo, mat, edge), i));
+  // middle course: two lengths butted end to end, joined by an AuraLok on the back, which rides partway up its
+  // rails when open (as in Elite's drawings)
+  for (const s of [-1, 1]) layers.push(lay(mesh(half.geo, mat, half.edge), 1, s * (LAP_L / 4 + LAP_JOINT / 2)));
+  const { rails, connector, hit } = auralok(pts);
+  const cmat = solidMaterial('connector', 0.45, 'connector');
+  const target = new THREE.Mesh(hit, new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }));
+  target.visible = false; // the raycaster still finds it
+  target.userData.hitOnly = true;
+  const lock = [mesh(rails, cmat), mesh(connector, cmat), target];
+  for (const m of lock) m.userData.lock = true; // hover / tap target
+  layers.push(lay(lock[0], 1), lay(lock[1], 1, 0, AURA.lift), lay(target, 1));
+  return layers;
+}
+
+const sidingCladding = () => lapWall();
+
+// Elite board & batten, from the vector outline in `Board-Batten-Technical-Specification_EN.pdf` (PDF points, scaled
+// by the 13.70" overall; the 2.00" batten, 10.00" board and 1.70" flange dimensions agree). x runs across the board:
+// batten (face +y) with the slot under it at the left, board with V ribs on the back, thin nailing flange at the right.
+// Boards repeat every 12": the flange slides into the next board's slot, under its batten.
+const BB_S = 13.7 / 658.4, BB_PITCH = 12, BB_L = 22;
+function boardBattenSection() {
+  const P = ([x, y, r = 0.8]) => [(x - 93.7) * BB_S, (357.1 - y) * BB_S, r * BB_S];
+  const rib = (c) => [[c + 7.9, 351], [c, 357.1, 1.4], [c - 7.9, 351]];
+  return [
+    [93.7, 319, 2.9], [189.8, 319, 2.9], [189.8, 336.8, 2.9], // batten
+    [684.4, 336.8], [685, 339.9], [720.9, 339.9], [721, 336.8], [752.1, 336.8, 1.4], [752.1, 343.1, 1.4], // face, flange
+    [729.5, 344.6, 1.3], [729.5, 357.3, 2.2], [724, 355.4, 0], [722, 351, 1.5], // flange lip
+    [686.8, 351], [682.3, 357.3, 1.5], [677.8, 351], ...rib(557.6), ...rib(432.9), ...rib(308.1), ...rib(183.4), // back
+    [153.4, 351, 1.2], [153.2, 345, 1.2], [175.4, 343.5, 1.4], [175.4, 333.2, 1.4], [108.1, 333.2, 1.4], [108.1, 336.5, 1.2], // slot
+    [93.7, 336.8, 2.9],
+  ].map(P);
+}
+
+// two boards on the corner's other wall: section x -> world -x (flange end at the corner), face -> world +z, length up.
+// x1: world x of the flange end
+function battenWall(x1 = 0) {
+  const pts = boardBattenSection();
+  const { geo, edge } = profile(pts, { depth: BB_L, bevel: 0.014 });
+  const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+  const c = V((Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2, 0);
+  const basis = new THREE.Matrix4().makeBasis(V(-1, 0, 0), V(0, 0, 1), V(0, 1, 0));
+  const mat = solidMaterial('cladding', 0.6, 'cladding');
+  const x0 = x1 + BB_PITCH + Math.max(...xs); // world x of section x = 0 on the first board
+  return [0, 1].map((i) => {
+    const m = mesh(geo, mat, edge);
+    m.quaternion.setFromRotationMatrix(basis);
+    m.position.set(x0 - i * BB_PITCH - c.x, 0, c.y);
+    // exploded: the wall slides straight off the corner along itself, the outer board further, pulling its flange out
+    // of the slot (mirrors the lap wall, which slides off the other way)
+    return { object: m, explode: V(i ? 2.5 : 4.7, 0, 0) };
   });
 }
+
+// Range (demo switch): an outside corner, lap siding on one wall (face -x) and board & batten on the other (face +z).
+// The battens' last flange covers the lap's cut end. Opening turns the corner half round to look in from behind, at the
+// lap's AuraLok joint, and the walls pull apart.
+const sidingRange = () => [...lapWall(-LAP_L / 2 - 0.4, -2.5), ...battenWall(-0.9)];
 
 // --- GLB-backed ------------------------------------------------------------
 // Parts come out of tools/optimize.mjs centered, Y-up, in inches.
@@ -474,12 +616,16 @@ function windowWell(parts) {
 }
 
 // yaw: base rotation (rad) giving the Figma three-quarter view
+// range / simple: overrides for the demo's Multi / Simple switch (Multi: the line's other profiles alongside; Simple:
+// one product per slide), see Stage.setVariant. Products without one use the default build in both
+// openAt / turnAt: [start, end] of the opening the parts move / the product turns in (corner: walls part, then turn,
+// so they never pass through each other edge-on); turnRate: slower turn, eased over time (per second)
 export const PRODUCTS = {
   'multiwall-sheets': { build: multiwall, yaw: -0.62 },
   'corrugated-sheets': { build: corrugated, yaw: -0.62 },
   'flat-sheets': { build: flatSheets, yaw: -0.62 },
-  'panel-systems': { build: panelSystems, yaw: 0.72, parts: ['16-in-inner', '18-in-inner', '8-in-fem', '8-panel', '4.5-in-spacer', '8-in-male'] },
-  'decking-railing': { build: decking, yaw: -0.62 },
-  'siding-cladding': { build: sidingCladding, yaw: 0.85, openYaw: 0.85 - 2.2 },
+  'panel-systems': { build: panelSystems, yaw: 0.72, parts: ['16-in-inner', '18-in-inner', '8-in-fem', '8-panel', '4.5-in-spacer', '8-in-male'], simple: { build: formwork } },
+  'decking-railing': { build: decking, yaw: -0.62, range: { build: deckingRange } },
+  'siding-cladding': { build: sidingCladding, yaw: 0.85, openYaw: 0.85 - 1.85, range: { build: sidingRange, yaw: Math.PI / 4, openYaw: Math.PI / 4 - Math.PI, openAt: [0, 0.55], turnAt: [0.3, 1], turnRate: 3.5 } },
   'specialty-products': { build: windowWell, yaw: 0.55, parts: ['egress-well', 'well-cover', 'well-cover-rail'] },
 };

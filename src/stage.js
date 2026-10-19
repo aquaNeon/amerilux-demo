@@ -42,6 +42,8 @@ const clamp01 = (v) => Math.min(1, Math.max(0, v));
 const ease = (t) => t * t * (3 - 2 * t);
 const SHADOW_IN = 0.45; // s, shadow fade-in after the active product's entrance
 const wrap = (v, n) => ((((v + n / 2) % n) + n) % n) - n / 2;
+// product timing: [start, end] window of the opening (0-1) a motion runs in, eased; no window = the whole opening
+const phase = (win, e) => (win ? ease(clamp01((e - win[0]) / (win[1] - win[0]))) : e);
 const edgeCache = new WeakMap();
 const EDGE_ON = new THREE.Color(0x1f2a28);
 const EDGE_OFF = new THREE.Color(0x6b6b6b);
@@ -251,8 +253,43 @@ export class Stage {
 
   // --- items ----------------------------------------------------------------
 
+  // product definition for the current variant (e.g. 'range': PRODUCTS[slug].range overrides the default build)
+  defFor(slug) {
+    const base = PRODUCTS[slug], alt = this.variant && base[this.variant];
+    return alt ? { ...base, ...alt } : base;
+  }
+
+  // demo switch: rebuild the products that have this variant (or had the previous one)
+  setVariant(variant) {
+    this.variant = variant;
+    for (const it of this.items) {
+      const def = this.defFor(it.slug);
+      if (def.build === it.def.build) continue;
+      it.def = def;
+      if (it.built) this.rebuildItem(it);
+    }
+  }
+
+  rebuildItem(it) {
+    it.content.traverse((o) => { if (o.isMesh || o.isLineSegments) o.geometry.dispose(); });
+    for (const { m } of [...it.materials, ...it.reals]) m.dispose();
+    it.content.clear();
+    it.catchers = [];
+    it.edges = [];
+    it.yawS = undefined;
+    // measure() reads world-space boxes: build at the origin like the first time, the next frame re-places it
+    it.root.position.set(0, 0, 0);
+    it.root.scale.setScalar(1);
+    it.tilt.position.set(0, 0, 0);
+    it.tilt.rotation.set(0, 0, 0);
+    this.buildItem(it);
+    this.styleItem(it);
+    // thumbnail once its programs are ready (a snapshot before that came out blank)
+    this.compileItem(it).then(() => this.onBuilt?.(it.index));
+  }
+
   createItem(slug, index) {
-    const def = PRODUCTS[slug];
+    const def = this.defFor(slug);
     const root = new THREE.Group(); // slot position + scale
     const tilt = new THREE.Group(); // yaw + motion
     const content = new THREE.Group(); // centering
@@ -285,6 +322,7 @@ export class Stage {
       this.styleItem(it);
       await this.compileItem(it);
       it.built = true;
+      if (it.builtWith !== it.def.build) return this.rebuildItem(it); // variant switched mid-build
       this.onBuilt?.(it.index);
     };
     await show(order[0], true); // never waits on the worker (builds a missing map inline instead)
@@ -316,6 +354,7 @@ export class Stage {
   }
 
   buildItem(it) {
+    it.builtWith = it.def.build;
     it.layers = it.def.build(this.parts);
     const mats = new Set();
     const meshes = [];
@@ -323,7 +362,11 @@ export class Stage {
       l.home = l.object.position.clone();
       it.content.add(l.object);
       // shadow-only planes on see-through sheets (photoreal only) are kept apart from the product meshes
-      l.object.traverse((o) => { if (o.userData.catcher) it.catchers.push(o); else if (o.isMesh) meshes.push(o); });
+      l.object.traverse((o) => {
+        if (o.userData.hitOnly) o.userData.item = it; // invisible pointer target: no materials, outlines or shadow
+        else if (o.userData.catcher) it.catchers.push(o);
+        else if (o.isMesh) meshes.push(o);
+      });
     }
     // B&W outlines; photoreal keeps outlines only on see-through sheets (tinted cut edges)
     it.edgeMat = new THREE.LineBasicMaterial({ color: EDGE_ON, transparent: true, opacity: 0.75 });
@@ -380,6 +423,8 @@ export class Stage {
       const g = 0.62 + lum(m.color) * 0.3;
       return { m, grey: new THREE.Color(g, g, g), mono: grey(m.color), opacity: m.opacity };
     });
+    it.hasLock = it.layers.some((l) => l.lift);
+    it.liftS = it.openT = undefined;
     this.measure(it);
     it.tilt.rotation.y = it.def.yaw;
   }
@@ -439,21 +484,23 @@ export class Stage {
     return { lines: built.flatMap((i) => i.edges), hide: built.flatMap((i) => i.see) };
   }
 
-  setExplode(it, e) {
+  // lift: how far a lock part (l.lift) is up its travel, 0-1; follows the opening unless the frame loop drives it
+  setExplode(it, e, lift = e) {
+    e = phase(it.def.openAt, e);
     // `arc`: detour that peaks halfway and is gone at both ends, so interlocked parts clear each other on the way
     for (const l of it.layers) {
       l.object.position.copy(l.home).addScaledVector(l.explode, e);
+      if (l.lift) l.object.position.addScaledVector(l.lift, lift);
       if (l.arc) l.object.position.addScaledVector(l.arc, Math.sin(Math.PI * e));
     }
   }
 
-  // base yaw at explode e: products with `openYaw` turn as they open (e.g. siding shows its hook side). Once fully
-  // open, closing carries on the same way round (from a full turn on) instead of turning back: one 360 per visit
+  // base yaw at explode e: products with `openYaw` turn as they open (e.g. siding shows its hook side), and turn back
+  // the same way when closing: always the short way round
   yawAt(it, e) {
     const { yaw, openYaw } = it.def;
     if (openYaw == null) return yaw;
-    const turn = Math.sign(openYaw - yaw) * Math.PI * 2;
-    return THREE.MathUtils.lerp(it.spinBack ? yaw + turn : yaw, openYaw, e);
+    return THREE.MathUtils.lerp(yaw, openYaw, phase(it.def.turnAt, e));
   }
 
   // screen-space extents (px per inch at scale 1) for assembled and exploded states
@@ -465,7 +512,7 @@ export class Stage {
       const m = view.clone().multiply(new THREE.Matrix4().makeRotationY(this.yawAt(it, e)));
       this.setExplode(it, e);
       it.content.position.set(0, 0, 0);
-      it.content.updateMatrixWorld(true);
+      it.root.updateMatrixWorld(true); // from the root: a rebuilt item's slot transform was just reset
       box.makeEmpty();
       for (const l of it.layers) box.expandByObject(l.object);
       const center = box.getCenter(new THREE.Vector3());
@@ -563,10 +610,15 @@ export class Stage {
       const r = c.getBoundingClientRect();
       return new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
     };
-    const pick = (e) => {
+    const hitAt = (e) => {
       this.raycaster.setFromCamera(toNdc(e), this.camera);
-      const hit = this.raycaster.intersectObjects(this.items.map((i) => i.root), true)[0];
-      return hit ? hit.object.userData.item : null;
+      return this.raycaster.intersectObjects(this.items.map((i) => i.root), true)[0];
+    };
+    const pick = (e) => hitAt(e)?.object.userData.item || null;
+    // the active product's lock part under the pointer, if any
+    const lockAt = (hit) => {
+      const it = hit?.object.userData.item;
+      return it && it.index === this.active && hit.object.userData.lock ? it : null;
     };
 
     c.addEventListener('pointerdown', (e) => {
@@ -583,12 +635,15 @@ export class Stage {
         }
         if (drag.moved) {
           this.current = this.target = drag.start - dx / (this.layout.slots[1] * this.scale);
+          this.lockHover = null; // dragging the carousel, not reaching for the lock
           return;
         }
       }
       if (e.pointerType === 'mouse') {
-        this.hovered = pick(e);
-        c.style.cursor = this.hovered && this.hovered.index !== this.active ? 'pointer' : drag ? 'grabbing' : 'grab';
+        const hit = hitAt(e);
+        this.hovered = hit?.object.userData.item || null;
+        this.lockHover = lockAt(hit);
+        c.style.cursor = this.lockHover || (this.hovered && this.hovered.index !== this.active) ? 'pointer' : drag ? 'grabbing' : 'grab';
       }
     });
     const end = (e) => {
@@ -596,15 +651,16 @@ export class Stage {
       if (drag.moved) {
         this.go(Math.round(this.current));
       } else {
-        const it = pick(e);
-        if (it) this.go(it.index);
+        const hit = hitAt(e), lock = lockAt(hit);
+        if (lock && e.pointerType !== 'mouse') lock.lockUp = !lock.lockUp; // touch: tap the lock to open / close it
+        else if (hit && !lock) this.go(hit.object.userData.item.index);
       }
       c.classList.remove('is-dragging');
       drag = null;
     };
     c.addEventListener('pointerup', end);
     c.addEventListener('pointercancel', end);
-    c.addEventListener('pointerleave', () => { this.hovered = null; this.pointer.set(0, 0); });
+    c.addEventListener('pointerleave', () => { this.hovered = this.lockHover = null; this.pointer.set(0, 0); });
   }
 
   bindVisibility() {
@@ -676,7 +732,17 @@ export class Stage {
 
       // explode + recentre
       const e = ease(clamp01((a - 0.25) / 0.75));
-      this.setExplode(it, e);
+      // a lock (siding's AuraLok) rides up while the product opens; once it's open and the turn has settled it slides
+      // home, so you see it close. Hover (or tap) glides it back up
+      if (it.hasLock) {
+        const settled = e > 0.99 && (it.yawS == null || Math.abs(it.yawS - this.yawAt(it, e)) < 0.05);
+        it.openT = settled ? (it.openT || 0) + dt : 0;
+        const home = it.openT > 0.25;
+        const target = home ? (this.lockHover === it || it.lockUp ? 1 : 0) : e;
+        it.liftS = it.liftS == null ? target : it.liftS + (target - it.liftS) * (1 - Math.exp(-dt * (home ? 4 : 14)));
+        if (!settled) it.lockUp = false;
+      }
+      this.setExplode(it, e, it.liftS ?? e);
       it.content.position.lerpVectors(it.fit[0].center, it.fit[1].center, e).negate();
 
       // fit into slot
@@ -692,9 +758,13 @@ export class Stage {
 
       // motion: gentle idle sway on active, pointer parallax
       const sway = this.reduced ? 0 : Math.sin(t * 0.3) * 0.07 * a;
-      if (e > 0.999) it.spinBack = true;
-      else if (e < 0.001) it.spinBack = false;
-      it.tilt.rotation.y = this.yawAt(it, e) + sway + this.follow.x * 0.09 * a;
+      // `turnRate`: the turn eases after the opening at its own pace (per second) instead of keeping up with the slide
+      let yaw = this.yawAt(it, e);
+      if (it.def.turnRate) {
+        it.yawS ??= yaw;
+        yaw = it.yawS += (yaw - it.yawS) * (1 - Math.exp(-dt * it.def.turnRate));
+      }
+      it.tilt.rotation.y = yaw + sway + this.follow.x * 0.09 * a;
       it.tilt.rotation.x = -this.follow.y * 0.045 * a;
       it.tilt.position.y = this.reduced ? 0 : Math.sin(t * 0.45 + it.index) * 1.5 * a;
 

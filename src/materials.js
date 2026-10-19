@@ -118,12 +118,16 @@ export const FINISHES = {
   // Elite: Polar White #EFEFEF, matte / satin, woodgrain "hardly noticeable unless close"
   // no bump: the 8-bit grain normal map terraces into contour lines on the flat faces
   cladding: { params: { roughness: 0.62, clearcoat: 0.06, clearcoatRoughness: 0.55, emissive: 0xffffff, emissiveIntensity: 0.14 }, maps: 'cladding', bump: false },
+  // AuraLok connector: no spec given; brushed aluminium
+  connector: { params: { color: 0xe2e5e8, metalness: 0.6, roughness: 0.3, envMapIntensity: 2 } },
   // HDPE: black #151515, textured / hammered, waxy
   'hdpe-black': { params: { roughness: 0.55, envMapIntensity: 1.1, normalScale: new THREE.Vector2(0.6, 0.6) }, maps: 'hammered' },
   // window well: galvanized steel #BCBBB5, mill / metallic
   'steel-galv': { params: { color: 0xbcbbb5, metalness: 0.65, roughness: 0.42, envMapIntensity: 1.5, side: THREE.DoubleSide } },
   // composite decking: Driftwood / Boardwalk Gray #B7B7B7, wire brushed (matte)
   deck: { params: { roughness: 0.85, envMapIntensity: 0.8, normalScale: new THREE.Vector2(0.9, 0.9) }, maps: 'deck' },
+  // Optima Dekk: same grey, woodgrain capstock (semi-gloss)
+  'deck-capstock': { params: { roughness: 0.55, clearcoat: 0.25, clearcoatRoughness: 0.35, envMapIntensity: 0.9, normalScale: new THREE.Vector2(0.7, 0.7) }, maps: 'deck' },
   // alternates kept for comparison: oak photo texture (placeholder) and the client's test-build "Cool Sand"
   'deck-oak': { params: { roughness: 1, envMapIntensity: 0.9, clearcoat: 0.08, clearcoatRoughness: 0.5, normalScale: new THREE.Vector2(1, 1) }, photo: 'deck-oak' },
   'deck-sand': { params: { roughness: 0.8, envMapIntensity: 0.8, normalScale: new THREE.Vector2(0.9, 0.9) }, maps: 'deck-sand' },
