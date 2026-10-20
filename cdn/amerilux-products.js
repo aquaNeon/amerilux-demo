@@ -13,6 +13,7 @@ var i = (t, n, r) => new e.Vector3(t, n, r), a = 1 / 25.4, o = {
 	core: 2105376,
 	hdpe: 1381653,
 	cladding: 15724527,
+	connector: 10133410,
 	deck: 12040119,
 	well: 12368821
 }, s = (e, t, n) => Object.assign(e.userData, {
@@ -308,8 +309,7 @@ function E() {
 		};
 	});
 }
-var D = 5.75;
-function O() {
+function D() {
 	let e = 5.75 / 862, t = ([t, n, r]) => [
 		(t - 93) * e,
 		(372 - n) * .006578947368421052,
@@ -466,28 +466,154 @@ function O() {
 		].map(t))
 	};
 }
+function O() {
+	let e = 1 / 72, t = ([t, n, r]) => [
+		(t - 413.9) * e,
+		(441.7 - n) * .013676148796498906,
+		r * e
+	];
+	return {
+		outer: [
+			[
+				413.9,
+				441.7,
+				18
+			],
+			[
+				809.9,
+				441.7,
+				18
+			],
+			[
+				809.9,
+				350.3,
+				18
+			],
+			[
+				413.9,
+				350.3,
+				18
+			]
+		].map(t),
+		holes: [
+			[423.2, 510.6],
+			[519.8, 607.3],
+			[616.5, 703.9],
+			[713.2, 800.5]
+		].map(([e, n]) => [
+			[
+				e,
+				430.2,
+				8.6
+			],
+			[
+				n,
+				430.2,
+				8.6
+			],
+			[
+				n,
+				366.8,
+				8.6
+			],
+			[
+				e,
+				366.8,
+				8.6
+			]
+		].map(t))
+	};
+}
 function k() {
-	let { outer: e, holes: t } = O(), { geo: n, edge: r } = g(e, {
-		holes: t,
-		depth: 18,
-		bevel: .02
-	});
-	return [
-		0,
-		1,
-		2,
-		3
-	].map((e) => {
-		let t = d(n, u("deck", .8, "deck"), r);
-		return t.position.x = (e - 1.5) * D, {
-			object: t,
-			explode: i((e - 1.5) * 1.6, 0, 0),
-			arc: i(0, (1.5 - e) * 1.1, 0)
+	let e = 5.4, t = 1.065, n = .17, r = .25, i = .54, a = .23, o = .03;
+	return {
+		outer: [
+			[
+				0,
+				0,
+				n
+			],
+			[
+				e,
+				0,
+				n
+			],
+			[
+				e,
+				r,
+				o
+			],
+			[
+				5.17,
+				r,
+				o
+			],
+			[
+				5.17,
+				i,
+				o
+			],
+			[
+				e,
+				i,
+				o
+			],
+			[
+				e,
+				t,
+				n
+			],
+			[
+				0,
+				t,
+				n
+			],
+			[
+				0,
+				i,
+				o
+			],
+			[
+				a,
+				i,
+				o
+			],
+			[
+				a,
+				r,
+				o
+			],
+			[
+				0,
+				r,
+				o
+			]
+		],
+		holes: []
+	};
+}
+var A = .25;
+function j() {
+	let e = [
+		[D(), "deck"],
+		[O(), "deck"],
+		[k(), "deck-capstock"]
+	], t = 0, n = e.map(([{ outer: e, holes: n }, r], a) => {
+		let { geo: o, edge: s } = g(e, {
+			holes: n,
+			depth: 18,
+			bevel: .02
+		}), c = e.map((e) => e[0]), l = e.map((e) => e[1]), f = Math.min(...c), p = Math.max(...c), m = d(o, u("deck", .8, r), s);
+		return m.position.set(t + (p - f) / 2, (Math.min(...l) + Math.max(...l)) / 2, 0), t += p - f + A, {
+			object: m,
+			explode: i((a - 1) * 1.6, 0, 0)
 		};
 	});
+	for (let e of n) e.object.position.x -= (t - A) / 2;
+	return n;
 }
-var A = 8.31 / 637.05;
-function j() {
+var M = 8.31 / 637.05;
+function N() {
 	return [
 		[
 			108.41,
@@ -580,58 +706,118 @@ function j() {
 			3.5
 		]
 	].map(([e, t, n]) => [
-		(e - 109.6) * A,
-		(379.3 - t) * A,
-		n * A
+		(e - 109.6) * M,
+		(379.3 - t) * M,
+		n * M
 	]);
 }
-var M = 7, N = 34.3 * A, P = Math.atan2(N, M);
-function F() {
-	let { geo: e, edge: t } = g(j(), {
-		depth: 22,
+var P = 7, F = 34.3 * M, I = Math.atan2(F, P), L = 22, R = {
+	railW: .36,
+	railWall: .08,
+	railH: .07,
+	bottom: 2,
+	top: 7.7,
+	width: 1,
+	plate: .06,
+	flange: .08,
+	len: 5.4,
+	lift: 1.9
+};
+function z(t) {
+	let n = t.map((e) => e[0]), r = t.map((e) => e[1]), a = i((Math.min(...n) + Math.max(...n)) / 2, (Math.min(...r) + Math.max(...r)) / 2, 0), o = (379.3 - 344.02) * M, s = R, c = new e.Matrix4().set(0, 1, 0, -a.x, 0, 0, -1, o - a.y, -1, 0, 0, 0, 0, 0, 0, 1), l = (e) => {
+		let t = (e, t, n) => h([
+			[e, s.top],
+			[
+				e,
+				n,
+				t / 2
+			],
+			[
+				e + t,
+				n,
+				t / 2
+			],
+			[e + t, s.top]
+		], 0, 6), n = s.railW, r = s.railWall;
+		return m(t(e, n, s.bottom), [t(e + r, n - 2 * r, s.bottom + r).map(([e, t]) => [e, Math.min(t, s.top - r)])]);
+	}, u = new e.ExtrudeGeometry([l(.035), l(-.035 - s.railW)], {
+		depth: s.railH,
+		bevelEnabled: !1,
+		curveSegments: 6
+	}).applyMatrix4(c), d = s.width / 2, f = s.flange, p = o - s.railH, g = s.plate, _ = s.railH, v = m([
+		[-d, -g],
+		[d, -g],
+		[d, _],
+		[d - f, _],
+		[d - f, 0],
+		[-d + f, 0],
+		[-d + f, _],
+		[-d, _]
+	]), y = new e.Matrix4().set(0, 0, 1, s.top - s.len - a.x, 0, 1, 0, p - a.y, -1, 0, 0, 0, 0, 0, 0, 1), b = new e.ExtrudeGeometry(v, {
+		depth: s.len,
+		bevelEnabled: !1
+	}).applyMatrix4(y), x = .8, S = s.bottom - x, C = s.top + s.lift + x, w = s.width / 2 + x, T = .4;
+	return {
+		rails: u,
+		connector: b,
+		hit: new e.BoxGeometry(C - S, T, 2 * w).translate((S + C) / 2 - a.x, o - T / 2 - a.y, 0)
+	};
+}
+function B() {
+	let t = N(), { geo: n, edge: r } = g(t, {
+		depth: L,
 		bevel: .014
-	}), n = u("cladding", .6, "cladding"), r = Math.PI / 2 - P;
-	return [
-		0,
-		1,
-		2
-	].map((a) => {
-		let o = d(e, n, t);
-		return o.rotation.z = r, o.position.set(0, (a - 1) * Math.hypot(M, N), 0), {
-			object: o,
-			explode: i(0, (a - 1) * 2.6, 0),
+	}), a = g(t, {
+		depth: L / 2,
+		bevel: .014
+	}), o = u("cladding", .6, "cladding"), s = Math.PI / 2 - I, c = i(Math.sin(I), Math.cos(I), 0), l = (e, t, n = 0, r = 0) => {
+		e.rotation.z = s, e.position.set(0, (t - 1) * Math.hypot(P, F), n);
+		let a = {
+			object: e,
+			explode: i(0, (t - 1) * 2.6, 0),
 			arc: i(-.5, 0, 0)
 		};
-	});
+		return r && (a.lift = c.clone().multiplyScalar(r)), a;
+	}, f = [0, 2].map((e) => l(d(n, o, r), e));
+	for (let e of [-1, 1]) f.push(l(d(a.geo, o, a.edge), 1, e * 5.515));
+	let { rails: p, connector: m, hit: h } = z(t), _ = u("connector", .45, "connector"), v = new e.Mesh(h, new e.MeshBasicMaterial({ side: e.DoubleSide }));
+	v.visible = !1, v.userData.hitOnly = !0;
+	let y = [
+		d(p, _),
+		d(m, _),
+		v
+	];
+	for (let e of y) e.userData.lock = !0;
+	return f.push(l(y[0], 1), l(y[1], 1, 0, R.lift), l(v, 1)), f;
 }
-var I = 50, L = (e, t = .01) => {
+var V = 50, H = (e, t = .01) => {
 	let n = (n) => n.y < e.min.y + t || n.y > e.max.y - t, r = (n) => n.z < e.min.z + t || n.z > e.max.z - t;
 	return (e, t) => n(e) && n(t) || r(e) && r(t);
-}, R = 14, z = 4;
-function B(t) {
-	let n = H(t);
-	for (let e of n) e.explode.y += 6;
-	let r = {
+}, U = 18, W = 4, G = 3, K = new e.Quaternion().setFromRotationMatrix(new e.Matrix4().makeBasis(i(0, 0, -1), i(-1, 0, 0), i(0, 1, 0)));
+function q(e) {
+	let t = Y(e);
+	for (let e of t) e.explode.x -= 2;
+	let n = {
 		"16-in-inner": 16,
 		"18-in-inner": 18
-	}, a = [
+	}, r = [
 		"16-in-inner",
 		"18-in-inner",
 		"16-in-inner"
-	], o = new e.Quaternion().setFromAxisAngle(i(0, 1, 0), Math.PI / 2), s = a.reduce((e, t) => e + r[t], 0), c = t["8-panel"].boundingBox.min.y, l = -s / 2;
-	return a.forEach((e, a) => {
-		let s = d(t[e], u("profile", .35, "pvc-white"));
-		s.userData.edgeAngle = I, s.userData.edgeKeep = L(t[e].boundingBox), s.quaternion.copy(o), s.scale.z = R / 6, s.position.set(0, c - 3, l + r[e] / 2), l += r[e], n.push({
-			object: s,
-			explode: i(0, 0, (a - 1) * z)
+	], a = r.reduce((e, t) => e + n[t], 0), o = e["8-panel"].boundingBox, s = o.max.x + G + e["16-in-inner"].boundingBox.max.y, c = a / 2;
+	return r.forEach((r, a) => {
+		let l = d(e[r], u("profile", .35, "pvc-white"));
+		l.userData.edgeAngle = V, l.userData.edgeKeep = H(e[r].boundingBox), l.quaternion.copy(K), l.scale.z = U / 6, l.position.set(s, o.min.y + U / 2, c - n[r] / 2), c -= n[r], t.push({
+			object: l,
+			explode: i(0, 0, (1 - a) * W)
 		});
-	}), n;
+	}), t;
 }
-function V(t, n, r, a) {
+function J(t, n, r, a) {
 	let o = n.map((n) => t[n].boundingBox.getSize(new e.Vector3())), s = -o.reduce((e, t) => e + t.z, 0) / 2;
 	return n.map((e, c) => {
 		let l = d(t[e], a());
-		l.userData.edgeAngle = I, l.position.z = s + o[c].z / 2, s += o[c].z;
+		l.userData.edgeAngle = V, l.position.z = s + o[c].z / 2, s += o[c].z;
 		let u = c - (n.length - 1) / 2;
 		return {
 			object: l,
@@ -639,8 +825,8 @@ function V(t, n, r, a) {
 		};
 	});
 }
-function H(e) {
-	return V(e, [
+function Y(e) {
+	return J(e, [
 		"8-in-fem",
 		"8-panel",
 		"4.5-in-spacer",
@@ -648,7 +834,7 @@ function H(e) {
 		"8-in-male"
 	], 7, () => u("profile", .38, "pvc-form"));
 }
-function U(t) {
+function X(t) {
 	let n = (e) => (e.rotation.y = Math.PI, e), r = u("well", .4, "steel-galv");
 	r.side = e.DoubleSide;
 	let a = n(d(t["egress-well"], r));
@@ -665,7 +851,7 @@ function U(t) {
 		explode: i(0, 16, 3)
 	}];
 }
-var W = {
+var Z = {
 	"multiwall-sheets": {
 		build: w,
 		yaw: -.62
@@ -679,7 +865,7 @@ var W = {
 		yaw: -.62
 	},
 	"panel-systems": {
-		build: B,
+		build: q,
 		yaw: .72,
 		parts: [
 			"16-in-inner",
@@ -691,16 +877,16 @@ var W = {
 		]
 	},
 	"decking-railing": {
-		build: k,
+		build: j,
 		yaw: -.62
 	},
 	"siding-cladding": {
-		build: F,
+		build: B,
 		yaw: .85,
-		openYaw: -1.35
+		openYaw: -1
 	},
 	"specialty-products": {
-		build: U,
+		build: X,
 		yaw: .55,
 		parts: [
 			"egress-well",
@@ -710,4 +896,4 @@ var W = {
 	}
 };
 //#endregion
-export { W as PRODUCTS, o as TINT, l as polyMaterial, u as solidMaterial };
+export { Z as PRODUCTS, o as TINT, l as polyMaterial, u as solidMaterial };

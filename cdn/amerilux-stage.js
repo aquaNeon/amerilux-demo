@@ -300,6 +300,12 @@ var k = (e) => ({
 		maps: "cladding",
 		bump: !1
 	},
+	connector: { params: {
+		color: 14869992,
+		metalness: .6,
+		roughness: .3,
+		envMapIntensity: 2
+	} },
 	"hdpe-black": {
 		params: {
 			roughness: .55,
@@ -320,6 +326,16 @@ var k = (e) => ({
 			roughness: .85,
 			envMapIntensity: .8,
 			normalScale: new t.Vector2(.9, .9)
+		},
+		maps: "deck"
+	},
+	"deck-capstock": {
+		params: {
+			roughness: .55,
+			clearcoat: .25,
+			clearcoatRoughness: .35,
+			envMapIntensity: .9,
+			normalScale: new t.Vector2(.7, .7)
 		},
 		maps: "deck"
 	},
@@ -815,7 +831,7 @@ var we = class {
 		e.layers = e.def.build(this.parts);
 		let n = /* @__PURE__ */ new Set(), r = [];
 		for (let t of e.layers) t.home = t.object.position.clone(), e.content.add(t.object), t.object.traverse((t) => {
-			t.userData.catcher ? e.catchers.push(t) : t.isMesh && r.push(t);
+			t.userData.hitOnly ? t.userData.item = e : t.userData.catcher ? e.catchers.push(t) : t.isMesh && r.push(t);
 		});
 		e.edgeMat = new t.LineBasicMaterial({
 			color: J,
@@ -867,7 +883,7 @@ var we = class {
 				mono: Z(e.color),
 				opacity: e.opacity
 			};
-		}), this.measure(e), e.tilt.rotation.y = e.def.yaw;
+		}), e.hasLock = e.layers.some((e) => e.lift), e.liftS = e.openT = void 0, this.measure(e), e.tilt.rotation.y = e.def.yaw;
 	}
 	setStyle(e) {
 		this.style = ["mono", "sketch"].includes(e) ? e : "color", this.applyStyle();
@@ -900,20 +916,18 @@ var we = class {
 			hide: e.flatMap((e) => e.see)
 		};
 	}
-	setExplode(e, t) {
-		for (let n of e.layers) n.object.position.copy(n.home).addScaledVector(n.explode, t), n.arc && n.object.position.addScaledVector(n.arc, Math.sin(Math.PI * t));
+	setExplode(e, t, n = t) {
+		for (let r of e.layers) r.object.position.copy(r.home).addScaledVector(r.explode, t), r.lift && r.object.position.addScaledVector(r.lift, n), r.arc && r.object.position.addScaledVector(r.arc, Math.sin(Math.PI * t));
 	}
 	yawAt(e, n) {
 		let { yaw: r, openYaw: i } = e.def;
-		if (i == null) return r;
-		let a = Math.sign(i - r) * Math.PI * 2;
-		return t.MathUtils.lerp(e.spinBack ? r + a : r, i, n);
+		return i == null ? r : t.MathUtils.lerp(r, i, n);
 	}
 	measure(e) {
 		let n = new t.Matrix4().makeRotationFromQuaternion(this.ortho.quaternion.clone().invert()), r = new t.Box3(), i = new t.Vector3();
 		e.fit = [0, 1].map((a) => {
 			let o = n.clone().multiply(new t.Matrix4().makeRotationY(this.yawAt(e, a)));
-			this.setExplode(e, a), e.content.position.set(0, 0, 0), e.content.updateMatrixWorld(!0), r.makeEmpty();
+			this.setExplode(e, a), e.content.position.set(0, 0, 0), e.root.updateMatrixWorld(!0), r.makeEmpty();
 			for (let t of e.layers) r.expandByObject(t.object);
 			let s = r.getCenter(new t.Vector3()), c = Infinity, l = -Infinity, u = Infinity, d = -Infinity;
 			for (let e = 0; e < 8; e++) i.set(e & 1 ? r.max.x : r.min.x, e & 2 ? r.max.y : r.min.y, e & 4 ? r.max.z : r.min.z).sub(s).applyMatrix4(o), c = Math.min(c, i.x), l = Math.max(l, i.x), u = Math.min(u, i.y), d = Math.max(d, i.y);
@@ -977,10 +991,9 @@ var we = class {
 		let e = this.canvas, n = null, r = (n) => {
 			let r = e.getBoundingClientRect();
 			return new t.Vector2((n.clientX - r.left) / r.width * 2 - 1, -((n.clientY - r.top) / r.height) * 2 + 1);
-		}, i = (e) => {
-			this.raycaster.setFromCamera(r(e), this.camera);
-			let t = this.raycaster.intersectObjects(this.items.map((e) => e.root), !0)[0];
-			return t ? t.object.userData.item : null;
+		}, i = (e) => (this.raycaster.setFromCamera(r(e), this.camera), this.raycaster.intersectObjects(this.items.map((e) => e.root), !0)[0]), a = (e) => {
+			let t = e?.object.userData.item;
+			return t && t.index === this.active && e.object.userData.lock ? t : null;
 		};
 		e.addEventListener("pointerdown", (e) => {
 			n = {
@@ -993,24 +1006,27 @@ var we = class {
 			if (this.pointer.copy(r(t)), n) {
 				let r = t.clientX - n.x;
 				if (Math.abs(r) > 6 && !n.moved && (n.moved = !0, e.setPointerCapture(n.id), e.classList.add("is-dragging")), n.moved) {
-					this.current = this.target = n.start - r / (this.layout.slots[1] * this.scale);
+					this.current = this.target = n.start - r / (this.layout.slots[1] * this.scale), this.lockHover = null;
 					return;
 				}
 			}
-			t.pointerType === "mouse" && (this.hovered = i(t), e.style.cursor = this.hovered && this.hovered.index !== this.active ? "pointer" : n ? "grabbing" : "grab");
+			if (t.pointerType === "mouse") {
+				let r = i(t);
+				this.hovered = r?.object.userData.item || null, this.lockHover = a(r), e.style.cursor = this.lockHover || this.hovered && this.hovered.index !== this.active ? "pointer" : n ? "grabbing" : "grab";
+			}
 		});
-		let a = (t) => {
+		let o = (t) => {
 			if (n) {
 				if (n.moved) this.go(Math.round(this.current));
 				else {
-					let e = i(t);
-					e && this.go(e.index);
+					let e = i(t), n = a(e);
+					n && t.pointerType !== "mouse" ? n.lockUp = !n.lockUp : e && !n && this.go(e.object.userData.item.index);
 				}
 				e.classList.remove("is-dragging"), n = null;
 			}
 		};
-		e.addEventListener("pointerup", a), e.addEventListener("pointercancel", a), e.addEventListener("pointerleave", () => {
-			this.hovered = null, this.pointer.set(0, 0);
+		e.addEventListener("pointerup", o), e.addEventListener("pointercancel", o), e.addEventListener("pointerleave", () => {
+			this.hovered = this.lockHover = null, this.pointer.set(0, 0);
 		});
 	}
 	bindVisibility() {
@@ -1041,11 +1057,17 @@ var we = class {
 			let o = K(e.index - this.current, i), s = G(W(1 - Math.abs(o)));
 			e.hover += (+(this.hovered === e && s < .5) - e.hover) * (1 - Math.exp(-n * 5)), e.revealAt ?? (this.lastReveal = e.revealAt = Math.max(r, (this.lastReveal ?? -Infinity) + he)), this.reduced ? e.appear = 1 : r >= e.revealAt && (e.appearVel += ((1 - e.appear) * U - e.appearVel * ge) * n, e.appear += e.appearVel * n);
 			let c = W(e.appear), l = G(W((s - .25) / .75));
-			this.setExplode(e, l), e.content.position.lerpVectors(e.fit[0].center, e.fit[1].center, l).negate();
+			if (e.hasLock) {
+				let t = l > .99;
+				e.openT = t ? (e.openT || 0) + n : 0;
+				let r = e.openT > .25, i = r ? this.lockHover === e || e.lockUp ? 1 : 0 : l;
+				e.liftS = e.liftS == null ? i : e.liftS + (i - e.liftS) * (1 - Math.exp(-n * (r ? 4 : 14))), t || (e.lockUp = !1);
+			}
+			this.setExplode(e, l, e.liftS ?? l), e.content.position.lerpVectors(e.fit[0].center, e.fit[1].center, l).negate();
 			let [u, d] = e.fit, { small: f, big: p, slots: m } = this.layout, h = Math.min(f.w / u.w, f.h / u.h), g = Math.min(p.w / d.w, p.h / d.h), _ = t.MathUtils.lerp(h, g, s) * this.scale * c * (1 + e.hover * .04);
 			e.root.scale.setScalar(_), e.root.position.set(Ce(m, o) * this.scale, e.hover * 6 - (1 - c) * 24 * this.scale, 0), e.root.visible = Math.abs(o) < 3.6 && c > .002, e.a = s;
 			let v = this.reduced ? 0 : Math.sin(r * .3) * .07 * s;
-			if (l > .999 ? e.spinBack = !0 : l < .001 && (e.spinBack = !1), e.tilt.rotation.y = this.yawAt(e, l) + v + this.follow.x * .09 * s, e.tilt.rotation.x = -this.follow.y * .045 * s, e.tilt.position.y = this.reduced ? 0 : Math.sin(r * .45 + e.index) * 1.5 * s, !a) {
+			if (e.tilt.rotation.y = this.yawAt(e, l) + v + this.follow.x * .09 * s, e.tilt.rotation.x = -this.follow.y * .045 * s, e.tilt.position.y = this.reduced ? 0 : Math.sin(r * .45 + e.index) * 1.5 * s, !a) {
 				for (let n of e.materials) n.m.color.lerpColors(n.grey, n.mono, s), n.m.transparent && (n.m.opacity = t.MathUtils.lerp(Math.min(1, n.opacity + .2), n.opacity, s));
 				e.edgeMat.color.copy(Y).lerp(J, s), e.edgeMat.opacity = .45 + .35 * s;
 			}
