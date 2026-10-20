@@ -42,8 +42,6 @@ const clamp01 = (v) => Math.min(1, Math.max(0, v));
 const ease = (t) => t * t * (3 - 2 * t);
 const SHADOW_IN = 0.45; // s, shadow fade-in after the active product's entrance
 const wrap = (v, n) => ((((v + n / 2) % n) + n) % n) - n / 2;
-// product timing: [start, end] window of the opening (0-1) a motion runs in, eased; no window = the whole opening
-const phase = (win, e) => (win ? ease(clamp01((e - win[0]) / (win[1] - win[0]))) : e);
 const edgeCache = new WeakMap();
 const EDGE_ON = new THREE.Color(0x1f2a28);
 const EDGE_OFF = new THREE.Color(0x6b6b6b);
@@ -253,43 +251,8 @@ export class Stage {
 
   // --- items ----------------------------------------------------------------
 
-  // product definition for the current variant (e.g. 'range': PRODUCTS[slug].range overrides the default build)
-  defFor(slug) {
-    const base = PRODUCTS[slug], alt = this.variant && base[this.variant];
-    return alt ? { ...base, ...alt } : base;
-  }
-
-  // demo switch: rebuild the products that have this variant (or had the previous one)
-  setVariant(variant) {
-    this.variant = variant;
-    for (const it of this.items) {
-      const def = this.defFor(it.slug);
-      if (def.build === it.def.build) continue;
-      it.def = def;
-      if (it.built) this.rebuildItem(it);
-    }
-  }
-
-  rebuildItem(it) {
-    it.content.traverse((o) => { if (o.isMesh || o.isLineSegments) o.geometry.dispose(); });
-    for (const { m } of [...it.materials, ...it.reals]) m.dispose();
-    it.content.clear();
-    it.catchers = [];
-    it.edges = [];
-    it.yawS = undefined;
-    // measure() reads world-space boxes: build at the origin like the first time, the next frame re-places it
-    it.root.position.set(0, 0, 0);
-    it.root.scale.setScalar(1);
-    it.tilt.position.set(0, 0, 0);
-    it.tilt.rotation.set(0, 0, 0);
-    this.buildItem(it);
-    this.styleItem(it);
-    // thumbnail once its programs are ready (a snapshot before that came out blank)
-    this.compileItem(it).then(() => this.onBuilt?.(it.index));
-  }
-
   createItem(slug, index) {
-    const def = this.defFor(slug);
+    const def = PRODUCTS[slug];
     const root = new THREE.Group(); // slot position + scale
     const tilt = new THREE.Group(); // yaw + motion
     const content = new THREE.Group(); // centering
@@ -322,7 +285,6 @@ export class Stage {
       this.styleItem(it);
       await this.compileItem(it);
       it.built = true;
-      if (it.builtWith !== it.def.build) return this.rebuildItem(it); // variant switched mid-build
       this.onBuilt?.(it.index);
     };
     await show(order[0], true); // never waits on the worker (builds a missing map inline instead)
@@ -354,7 +316,6 @@ export class Stage {
   }
 
   buildItem(it) {
-    it.builtWith = it.def.build;
     it.layers = it.def.build(this.parts);
     const mats = new Set();
     const meshes = [];
@@ -486,7 +447,6 @@ export class Stage {
 
   // lift: how far a lock part (l.lift) is up its travel, 0-1; follows the opening unless the frame loop drives it
   setExplode(it, e, lift = e) {
-    e = phase(it.def.openAt, e);
     // `arc`: detour that peaks halfway and is gone at both ends, so interlocked parts clear each other on the way
     for (const l of it.layers) {
       l.object.position.copy(l.home).addScaledVector(l.explode, e);
@@ -500,7 +460,7 @@ export class Stage {
   yawAt(it, e) {
     const { yaw, openYaw } = it.def;
     if (openYaw == null) return yaw;
-    return THREE.MathUtils.lerp(yaw, openYaw, phase(it.def.turnAt, e));
+    return THREE.MathUtils.lerp(yaw, openYaw, e);
   }
 
   // screen-space extents (px per inch at scale 1) for assembled and exploded states
@@ -732,10 +692,10 @@ export class Stage {
 
       // explode + recentre
       const e = ease(clamp01((a - 0.25) / 0.75));
-      // a lock (siding's AuraLok) rides up while the product opens; once it's open and the turn has settled it slides
+      // a lock (siding's AuraLok) rides up while the product opens; once it's fully open (and turned) it slides
       // home, so you see it close. Hover (or tap) glides it back up
       if (it.hasLock) {
-        const settled = e > 0.99 && (it.yawS == null || Math.abs(it.yawS - this.yawAt(it, e)) < 0.05);
+        const settled = e > 0.99;
         it.openT = settled ? (it.openT || 0) + dt : 0;
         const home = it.openT > 0.25;
         const target = home ? (this.lockHover === it || it.lockUp ? 1 : 0) : e;
@@ -758,13 +718,7 @@ export class Stage {
 
       // motion: gentle idle sway on active, pointer parallax
       const sway = this.reduced ? 0 : Math.sin(t * 0.3) * 0.07 * a;
-      // `turnRate`: the turn eases after the opening at its own pace (per second) instead of keeping up with the slide
-      let yaw = this.yawAt(it, e);
-      if (it.def.turnRate) {
-        it.yawS ??= yaw;
-        yaw = it.yawS += (yaw - it.yawS) * (1 - Math.exp(-dt * it.def.turnRate));
-      }
-      it.tilt.rotation.y = yaw + sway + this.follow.x * 0.09 * a;
+      it.tilt.rotation.y = this.yawAt(it, e) + sway + this.follow.x * 0.09 * a;
       it.tilt.rotation.x = -this.follow.y * 0.045 * a;
       it.tilt.position.y = this.reduced ? 0 : Math.sin(t * 0.45 + it.index) * 1.5 * a;
 

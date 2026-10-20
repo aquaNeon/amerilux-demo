@@ -15,15 +15,12 @@
 //   data-amx-center-x / data-amx-center-y (0-1, active slot position in the stage, default per layout),
 //   data-amx-style ("color" | "mono" | "sketch", initial visual style).
 //   [data-amx-set-style="<style>"] buttons switch style; the active one gets .is-active.
-//   [data-amx-set-variant="range" | "simple"] buttons (demo only): "range" shows each line's other profiles alongside,
-//     "simple" one product per slide;
-//     data-amx-variant on the root picks the initial one.
 // [data-amx-cta] one shared button (a link, or a wrap around the site's button component): takes the
 //   open item's data-amx-href and data-amx-cta-text (its label element is found by its text).
 // Items whose link (data-amx-href, or any a[href] inside) points at the current page are left out, so the
 // product-page instance never shows the product you are on. Items with no 3D model are left out too.
 // Emits `amx:change` on the root with detail { index, slug }; exposes root.amerilux.go(i)
-// and root.amerilux.setStyle(s) / setVariant(v)
+// and root.amerilux.setStyle(s)
 // (set once the 3D chunk has loaded, i.e. after the section first nears the viewport).
 import { Tabs, onPress } from './tabs.js';
 
@@ -141,19 +138,7 @@ async function init(root) {
   styleBtns.forEach((b) => onPress(b, () => setStyle(b.dataset.amxSetStyle)));
   setStyle(root.dataset.amxStyle || 'color');
 
-  const variantBtns = [...root.querySelectorAll('[data-amx-set-variant]')];
-  const setVariant = (v) => {
-    stage.setVariant(v);
-    variantBtns.forEach((b) => {
-      const on = b.dataset.amxSetVariant === v;
-      b.classList.toggle('is-active', on);
-      b.setAttribute('aria-pressed', on);
-    });
-  };
-  variantBtns.forEach((b) => onPress(b, () => setVariant(b.dataset.amxSetVariant)));
-  if (variantBtns.length) setVariant(root.dataset.amxVariant || '');
-
-  root.amerilux = { stage, tabs, go: (i) => stage.go(i), setStyle, setVariant };
+  root.amerilux = { stage, tabs, go: (i) => stage.go(i), setStyle };
   return root.amerilux;
 }
 

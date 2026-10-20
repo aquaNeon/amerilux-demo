@@ -43,7 +43,6 @@ h1, h2, p { margin: 0; }
 .style-switch__btn { height: 28px; padding: 0 12px; border-radius: 1px; font: 500 12px/1 var(--mono); letter-spacing: 0.6px; text-transform: uppercase; color: rgba(0, 0, 0, 0.55); transition: background 0.2s, color 0.2s; }
 .style-switch__btn:hover { color: var(--ink); }
 .style-switch__btn.is-active, .style-switch__btn.is-active:hover { background: var(--ink); color: #fff; }
-/* multi / simple: decking + siding with their other profiles, or the flagship one (demo only) */
 .style-switch[hidden] { display: none; } /* Color / B&W / Sketch: hidden, Color chosen (kept for comparison) */
 
 /* right panel / tabs -------------------------------------------------------- */
